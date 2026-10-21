@@ -39,12 +39,14 @@ export const LanguageDropdown: React.FC<LanguageDropdownProps> = ({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className={`flex items-center gap-1.5 rounded-lg hover:bg-slate-800/60 text-slate-200 transition ${
-          compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1.5 text-xs'
+        className={`flex items-center justify-center gap-1.5 transition ${
+          compact
+            ? 'px-2 py-1 rounded-lg text-[11px] hover:bg-slate-800/60 text-slate-200'
+            : 'h-[38px] px-2.5 rounded-[8px] bg-white/[0.05] hover:bg-slate-800/70 border border-white/[0.08] text-[12px] font-bold text-slate-100'
         }`}
         title={`Dil Seçimi: ${activeMeta.label} (${activeMeta.code.toUpperCase()})`}
       >
-        <Globe className="w-3.5 h-3.5 text-[#00C8FF] shrink-0" />
+        {compact && <Globe className="w-3.5 h-3.5 text-[#00C8FF] shrink-0" />}
         <span className="font-bold uppercase tracking-wide">
           {activeMeta.code}
         </span>

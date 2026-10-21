@@ -1,6 +1,6 @@
 import React, { useId } from 'react';
 
-interface HyperionLogoProps {
+interface FileManGLLogoProps {
   size?: number;
   className?: string;
   withGlow?: boolean;
@@ -12,7 +12,7 @@ interface HyperionLogoProps {
  * and Fluent 3D curved ribbon aesthetic, with an original ascending ('/') dual-crest & stacked card geometry.
  * Zero external drop-shadow bleed.
  */
-export const HyperionLogo: React.FC<HyperionLogoProps> = ({
+export const FileManGLLogo: React.FC<FileManGLLogoProps> = ({
   size = 40,
   className = '',
 }) => {
