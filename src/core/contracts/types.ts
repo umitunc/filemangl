@@ -103,6 +103,16 @@ export interface FileNode {
   trashed: boolean;
   trashedAt?: string;
   content?: string; // text/code/svg/markdown or image procedural preset
+  blobUrl?: string; // Real browser ObjectURL / DataURL for uploaded binary files (.mp4, .png, .pdf, .mp3)
+  thumbnailUrl?: string; // Extracted real video poster frame or image thumbnail DataURL
+  thumbnailMeta?: {
+    thumbByteSize: number;
+    generationMs: number;
+    fromCache: boolean;
+    format: string;
+  };
+  durationSec?: number; // Real media duration in seconds for uploaded video/audio
+  isUserUploaded?: boolean; // True when uploaded by the user from local disk
   imageMeta?: {
     width: number;
     height: number;
@@ -192,7 +202,7 @@ export interface IFileSystemDriver {
 }
 
 /**
- * Fully declarative Configuration Contract for <HyperionFileManager config={...} />
+ * Fully declarative Configuration Contract for <FileManGL config={...} />
  */
 export type SupportedLocale = 'tr' | 'en' | 'de' | 'ru';
 

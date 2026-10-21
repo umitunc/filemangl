@@ -1,16 +1,18 @@
 import { FileNode, IFileSystemDriver } from '../contracts/types';
 import { getInitialSeedNodes } from './seedFileSystem';
+import { ThumbnailCacheService } from '../services/ThumbnailCacheService';
 
-const STORAGE_KEY = 'hyperion_fm_vfs_nodes_v27_win11';
+const STORAGE_KEY = 'filemangl_vfs_nodes_v28_win11';
 
 /**
  * Liskov Substitution Principle (LSP):
  * VfsLocalStorageDriver persists the virtual file system in localStorage with automatic fallback to memory
- * when large stress-test node sets exceed browser storage limits.
+ * when large stress-test node sets exceed browser storage limits, and rehydrates binary Blobs & Thumbnails
+ * from IndexedDB (ThumbnailCacheService) across page reloads.
  */
 export class VfsLocalStorageDriver implements IFileSystemDriver {
   public readonly driverId = 'vfs_localstorage';
-  public readonly driverName = 'Hyperion In-Browser VFS (Zero-Backend)';
+  public readonly driverName = 'FileManGL In-Browser VFS (Zero-Backend)';
   public readonly supportsRealtimeStream = true;
 
   private memoryCache: FileNode[] | null = null;
@@ -21,8 +23,9 @@ export class VfsLocalStorageDriver implements IFileSystemDriver {
       if (raw) {
         const parsed = JSON.parse(raw) as FileNode[];
         if (Array.isArray(parsed) && parsed.length > 0) {
-          this.memoryCache = parsed;
-          return parsed;
+          const rehydrated = await ThumbnailCacheService.rehydrateNodes(parsed);
+          this.memoryCache = rehydrated;
+          return rehydrated;
         }
       }
     } catch {
@@ -68,7 +71,7 @@ export class VfsLocalStorageDriver implements IFileSystemDriver {
  */
 export class VfsMemoryDriver implements IFileSystemDriver {
   public readonly driverId = 'vfs_memory';
-  public readonly driverName = 'Hyperion Ephemeral RAM Disk VFS';
+  public readonly driverName = 'FileManGL Ephemeral RAM Disk VFS';
   public readonly supportsRealtimeStream = true;
 
   private nodes: FileNode[] = getInitialSeedNodes();

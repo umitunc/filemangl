@@ -44,7 +44,7 @@ export const DEMO_USERS: UserIdentity[] = [
 ];
 
 export const DEFAULT_FILE_MANAGER_CONFIG: IFileManagerConfig = {
-  volumeName: 'HYPERION_NVME_VOL01 (D:)',
+  volumeName: 'FILEMANGL_NVME_VOL01 (D:)',
   mountPath: '/mnt/nvme0n1/workspace',
   locale: 'tr',
   theme: 'dark',

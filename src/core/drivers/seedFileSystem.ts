@@ -182,7 +182,7 @@ const FAKE_TEMPLATES: Array<{
     mime: 'application/typescript',
     names: [
       'AuthTokenGuard',
-      'WebGLBatchRenderer',
+      'FileManGLBatchRenderer',
       'PermissionsMiddleware',
       'StorageDriverAdapter',
       'QuotaPolicyValidator',
@@ -196,7 +196,7 @@ const FAKE_TEMPLATES: Array<{
     ext: '.php',
     mime: 'application/x-httpd-php',
     names: [
-      'LaravelDiskController',
+      'FileManGLDiskController',
       'SanctumAclPolicy',
       'ChunkedUploadService',
       'TenantQuotaRepository',
@@ -246,8 +246,8 @@ const FAKE_TEMPLATES: Array<{
     names: [
       'release_artifact_bundle',
       'backup_database_dump',
-      'webgl_textures_pack',
-      'client_sdk_dist',
+      'filemangl_textures_pack',
+      'filemangl_sdk_dist',
     ],
   },
   {
@@ -255,9 +255,9 @@ const FAKE_TEMPLATES: Array<{
     ext: '.mp4',
     mime: 'video/mp4',
     names: [
-      'Demo_Stream_60FPS_Recording',
+      'FileManGL_Stream_60FPS_Recording',
       'Keynote_Sunum_Kaydi',
-      'WebGL_Shader_Benchmark_Pass',
+      'FileManGL_Shader_Benchmark_Pass',
     ],
   },
 ];
@@ -514,7 +514,7 @@ export function getInitialSeedNodes(): FileNode[] {
       colorTag: 'blue',
       trashed: false,
       checksumSha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-      content: `# HyperionFM v2.4 — Enterprise WebGL & SOLID File Manager\n\nBinlerce dosya üzerinde 60-120 FPS Virtualized DOM ve WebGL2 GPU sahnesiyle çalışır.`,
+      content: `# FileManGL v1.0.4 — Enterprise WebGL & SOLID File Manager\n\nBinlerce dosya üzerinde 60-120 FPS Virtualized DOM ve WebGL2 GPU sahnesiyle çalışır.`,
       security: {
         ownerId: 'usr_admin',
         ownerName: 'Umit Uz (Root Admin)',
@@ -560,7 +560,7 @@ export function getInitialSeedNodes(): FileNode[] {
     {
       id: 'fil_root_config',
       parentId: null,
-      name: 'HyperionConfig.json',
+      name: 'FileManGLConfig.json',
       type: 'file',
       category: 'data',
       extension: '.json',
@@ -572,7 +572,7 @@ export function getInitialSeedNodes(): FileNode[] {
       tags: ['Config', 'SOLID'],
       colorTag: 'emerald',
       trashed: false,
-      content: `{\n  "version": "2.4.0",\n  "engine": "WebGL2",\n  "strictAcl": true\n}`,
+      content: `{\n  "name": "FileManGL",\n  "version": "1.0.4",\n  "engine": "WebGL2",\n  "strictAcl": true\n}`,
       checksumSha256: '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b',
       security: {
         ownerId: 'usr_admin',
@@ -587,7 +587,7 @@ export function getInitialSeedNodes(): FileNode[] {
     {
       id: 'fil_root_sdk_zip',
       parentId: null,
-      name: 'Hyperion_SDK_v2.4.zip',
+      name: 'FileManGL_SDK_v1.0.4.zip',
       type: 'archive',
       category: 'archive',
       extension: '.zip',
@@ -667,7 +667,7 @@ export function getInitialSeedNodes(): FileNode[] {
     {
       id: 'fil_rel_bundle',
       parentId: 'fld_releases',
-      name: 'Production_Build_v2.4.zip',
+      name: 'FileManGL_Build_v1.0.4.zip',
       type: 'archive',
       category: 'archive',
       extension: '.zip',
@@ -693,7 +693,7 @@ export function getInitialSeedNodes(): FileNode[] {
     {
       id: 'fil_laravel_ctrl',
       parentId: 'fld_connectors',
-      name: 'HyperionConnector.php',
+      name: 'FileManGLConnector.php',
       type: 'file',
       category: 'code',
       extension: '.php',
@@ -705,7 +705,7 @@ export function getInitialSeedNodes(): FileNode[] {
       tags: ['Laravel-11', 'Connector', 'ACL'],
       colorTag: 'rose',
       trashed: false,
-      content: `<?php\n// Laravel 11 Connector Controller\n`,
+      content: `<?php\n// Laravel 11 FileManGL Connector Controller\n`,
       checksumSha256: '4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce',
       security: {
         ownerId: 'usr_dev',
