@@ -33,8 +33,8 @@
     "card4Title": "%100 SOLID Konfigüratör",
     "card4Desc": "Tüm araç çubukları, paneller, izin kuralları ve sürücüler tek bir config objesiyle set edilir.",
     "livePreviewHint": "Canlı Önizleme: Tam ekran çalışma alanı için /demo sayfasına, teknik entegrasyon için /documentation sayfasına gidebilirsiniz.",
-    "comparisonTitle": "Mimari Karşılaştırma: elFinder vs. Standart React File Manager vs. HyperionFM",
-    "comparisonSubtitle": "Neden HyperionFM kurumsal disk yönetimi ve yüksek performanslı sahneler için daha kapsamlı bir mimari sunar?",
+    "comparisonTitle": "Mimari Karşılaştırma: elFinder vs. Standart React File Manager vs. FileManGL",
+    "comparisonSubtitle": "Neden FileManGL kurumsal disk yönetimi ve yüksek performanslı sahneler için daha kapsamlı bir mimari sunar?",
     "inspectDocsBtn": "Mimari Dokümantasyonu İncele (/documentation)"
   },
   "explorer": {

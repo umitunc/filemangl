@@ -33,8 +33,8 @@
     "card4Title": "100% SOLID Configurator",
     "card4Desc": "Configure every toolbar, panel, permission rule, locale, and storage driver through a single config contract.",
     "livePreviewHint": "Live Preview: Visit /demo for the full-screen workspace or /documentation for backend integration guides.",
-    "comparisonTitle": "Architectural Comparison: elFinder vs. Standard React File Manager vs. HyperionFM",
-    "comparisonSubtitle": "Why HyperionFM delivers a superior architecture for enterprise disk governance and high-speed rendering:",
+    "comparisonTitle": "Architectural Comparison: elFinder vs. Standard React File Manager vs. FileManGL",
+    "comparisonSubtitle": "Why FileManGL delivers a superior architecture for enterprise disk governance and high-speed rendering:",
     "inspectDocsBtn": "Explore Technical Docs (/documentation)"
   },
   "explorer": {

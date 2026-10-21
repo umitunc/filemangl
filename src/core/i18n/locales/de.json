@@ -33,8 +33,8 @@
     "card4Title": "100% SOLID Konfigurator",
     "card4Desc": "Steuern Sie alle Symbolleisten, Ansichten, Berechtigungen und Treiber über ein einziges Config-Objekt.",
     "livePreviewHint": "Live-Vorschau: Öffnen Sie /demo für den Vollbild-Arbeitsbereich oder /documentation für die Backend-Integration.",
-    "comparisonTitle": "Architekturvergleich: elFinder vs. Standard React File Manager vs. HyperionFM",
-    "comparisonSubtitle": "Warum HyperionFM eine umfassendere Architektur für Enterprise-Speicherverwaltung bietet:",
+    "comparisonTitle": "Architekturvergleich: elFinder vs. Standard React File Manager vs. FileManGL",
+    "comparisonSubtitle": "Warum FileManGL eine umfassendere Architektur für Enterprise-Speicherverwaltung bietet:",
     "inspectDocsBtn": "Dokumentation Ansehen (/documentation)"
   },
   "explorer": {
