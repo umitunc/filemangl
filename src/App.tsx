@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { DEFAULT_FILE_MANAGER_CONFIG } from './core/config/defaultConfig';
 import { ExplorerViewMode, IFileManagerConfig, SupportedLocale } from './core/contracts/types';
-import { FileManGL } from './components/explorer/HyperionFileManager';
+import { FileManGL } from './components/explorer/FileManGL';
 import { ConfigPlaygroundPanel } from './components/configurator/ConfigPlaygroundPanel';
 import {
   DocumentationPortal,
@@ -11,7 +11,7 @@ import {
   I18nProvider,
   DICTIONARIES,
 } from './core/i18n/I18nProvider';
-import { HyperionLogo } from './components/brand/HyperionLogo';
+import { FileManGLLogo } from './components/brand/FileManGLLogo';
 import { LanguageDropdown } from './components/brand/LanguageDropdown';
 import {
   Cpu,
@@ -165,21 +165,21 @@ export function App() {
         }`}
       >
         {/* ====================================================================
-            MINIMAL BORDERLESS SINGLE-LINE STICKY HEADER (FileManGL)
+            SHEETGL-SIZED STICKY GLASSMORPHISM HEADER (1280px • 68px Desktop / 2-Row Mobile)
         ==================================================================== */}
-        <header className="sticky top-0 z-40 bg-[#070b12]/85 backdrop-blur-xl border-b border-slate-800/50">
-          <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
-            {/* Brand: Logo + FileManGL + Minimal Version Tag */}
+        <header className="sticky top-0 z-40 w-full bg-[#070b12]/85 backdrop-blur-xl border-b border-slate-800/60 select-none">
+          <div className="max-w-[1280px] mx-auto px-3 sm:px-6 py-2.5 lg:py-0 lg:h-[68px] flex flex-wrap lg:flex-nowrap items-center justify-between gap-y-2 gap-x-3 lg:gap-4">
+            {/* LEFT: Brand Logo (size=30) + FileManGL (22px, weight 900, -0.035em) */}
             <a
               href="/"
               onClick={(e) => {
                 e.preventDefault();
                 navigate('/');
               }}
-              className="flex items-center gap-2.5 group shrink-0"
+              className="order-1 flex items-center gap-2 sm:gap-[10px] group shrink-0"
             >
-              <HyperionLogo size={32} />
-              <span className="font-extrabold text-base tracking-tight text-white">
+              <FileManGLLogo size={30} />
+              <span className="text-[19px] sm:text-[22px] font-black tracking-[-0.035em] text-white leading-none">
                 FileMan
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#2FF58E] via-[#00C8FF] to-[#0077FF]">
                   GL
@@ -190,21 +190,20 @@ export function App() {
               </span>
             </a>
 
-            {/* Center Borderless Single-Line Navigation */}
-            <nav className="flex items-center gap-2 text-xs font-medium overflow-x-auto no-scrollbar">
+            {/* CENTER: Nav Links (gap=28px on desktop, full-width scrollable bar on mobile/tablet) */}
+            <nav className="order-3 lg:order-2 w-full lg:w-auto pt-2 lg:pt-0 border-t border-slate-800/60 lg:border-t-0 flex items-center justify-between sm:justify-center gap-3 sm:gap-[28px] text-[13px] lg:text-[14px] font-medium overflow-x-auto no-scrollbar">
               <a
                 href="/"
                 onClick={(e) => {
                   e.preventDefault();
                   navigate('/');
                 }}
-                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition ${
+                className={`whitespace-nowrap px-1.5 py-0.5 rounded transition-colors ${
                   route === 'home'
-                    ? 'bg-cyan-500/15 text-white font-semibold'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                    ? 'text-[#00C8FF] font-semibold'
+                    : 'text-slate-300 hover:text-[#38BDF8]'
                 }`}
               >
-                <Home className="w-3.5 h-3.5 text-[#2FF58E]" />
                 <span>{dict.nav.landing}</span>
               </a>
 
@@ -214,13 +213,12 @@ export function App() {
                   e.preventDefault();
                   navigate('/demo');
                 }}
-                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition ${
+                className={`whitespace-nowrap px-1.5 py-0.5 rounded transition-colors ${
                   route === 'demo'
-                    ? 'bg-cyan-500/15 text-white font-semibold'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                    ? 'text-[#00C8FF] font-semibold'
+                    : 'text-slate-300 hover:text-[#38BDF8]'
                 }`}
               >
-                <Play className="w-3.5 h-3.5 text-[#00C8FF]" />
                 <span>{dict.nav.liveDemo}</span>
               </a>
 
@@ -230,13 +228,12 @@ export function App() {
                   e.preventDefault();
                   navigate('/documentation');
                 }}
-                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition ${
+                className={`whitespace-nowrap px-1.5 py-0.5 rounded transition-colors ${
                   route === 'documentation'
-                    ? 'bg-cyan-500/15 text-white font-semibold'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                    ? 'text-[#00C8FF] font-semibold'
+                    : 'text-slate-300 hover:text-[#38BDF8]'
                 }`}
               >
-                <BookOpen className="w-3.5 h-3.5 text-sky-400" />
                 <span>{dict.nav.documentation}</span>
               </a>
 
@@ -246,19 +243,54 @@ export function App() {
                   e.preventDefault();
                   navigate('/configurator');
                 }}
-                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition ${
+                className={`whitespace-nowrap px-1.5 py-0.5 rounded transition-colors ${
                   route === 'configurator'
-                    ? 'bg-cyan-500/15 text-white font-semibold'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                    ? 'text-[#00C8FF] font-semibold'
+                    : 'text-slate-300 hover:text-[#38BDF8]'
                 }`}
               >
-                <Sliders className="w-3.5 h-3.5 text-emerald-400" />
                 <span>{dict.nav.configurator}</span>
+              </a>
+
+              <a
+                href="https://github.com/umitunc/filemangl"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden md:inline-flex items-center gap-1.5 text-[14px] font-semibold text-slate-300 hover:text-[#38BDF8] whitespace-nowrap transition-colors"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                </svg>
+                <span>GitHub</span>
               </a>
             </nav>
 
-            {/* Right Borderless Controls: Language Dropdown + Icon Theme Toggle + CTA */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* RIGHT: GitHub Icon (38x38), Language Dropdown, Theme Toggle (38x38), Pill CTA Button */}
+            <div className="order-2 lg:order-3 flex items-center gap-1.5 sm:gap-[10px] shrink-0">
+              <a
+                href="https://github.com/umitunc/filemangl"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="GitHub Repository (umitunc/filemangl)"
+                className="w-[34px] h-[34px] sm:w-[38px] sm:h-[38px] rounded-[10px] bg-white/[0.05] hover:border-[#38BDF8] border border-white/[0.08] text-slate-200 flex items-center justify-center transition"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                </svg>
+              </a>
+
               <LanguageDropdown
                 locale={config.locale}
                 onSelectLocale={(locale) => handleUpdateConfig({ locale })}
@@ -270,7 +302,7 @@ export function App() {
                     theme: config.theme === 'light' ? 'dark' : 'light',
                   })
                 }
-                className="w-8 h-8 rounded-lg hover:bg-slate-800/60 text-slate-300 flex items-center justify-center transition"
+                className="w-[34px] h-[34px] sm:w-[38px] sm:h-[38px] rounded-[10px] bg-[#0D111A] hover:border-[#38BDF8] border border-white/[0.08] text-slate-200 flex items-center justify-center transition"
                 title="Dark / Light Tema"
               >
                 {config.theme === 'light' ? (
@@ -288,10 +320,10 @@ export function App() {
                     navigate('/demo');
                   }}
                   style={{ color: '#ffffff' }}
-                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#18E092] via-[#00B4F5] to-[#0062D6] hover:brightness-110 font-sans text-xs font-bold text-white flex items-center gap-1.5 whitespace-nowrap shadow-lg shadow-cyan-500/20 transition"
+                  className="hidden sm:inline-flex px-3.5 py-2 lg:px-[20px] lg:py-[10px] rounded-full bg-gradient-to-r from-[#18E092] via-[#00B4F5] to-[#0062D6] hover:brightness-110 hover:-translate-y-[1px] font-sans text-xs lg:text-[13.5px] font-bold text-white items-center gap-1.5 lg:gap-2 whitespace-nowrap shadow-[0_4px_18px_rgba(2,132,199,0.45)] transition-all"
                 >
-                  <Play className="w-3.5 h-3.5 fill-white text-white" />
                   <span>{dict.nav.startDemo}</span>
+                  <span className="text-[15px] leading-none">→</span>
                 </a>
               )}
             </div>
@@ -448,7 +480,7 @@ export function App() {
         ==================================================================== */}
         {route === 'home' && (
           <>
-            <section className="relative overflow-hidden pt-12 pb-12 border-b border-slate-800/60">
+            <section className="relative overflow-hidden pt-7 pb-8 sm:pt-12 sm:pb-12 border-b border-slate-800/60">
               {/* SheetGL-style Centered Radial Glow & Subtle Architectural Grid */}
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(16,220,158,0.16),rgba(0,184,255,0.10)_36%,transparent_70%)] pointer-events-none" />
               <div
@@ -465,14 +497,14 @@ export function App() {
                 }}
               />
 
-              <div className="max-w-[1160px] mx-auto px-4 sm:px-6 relative z-10 flex flex-col items-center text-center">
-                {/* Centerpiece 3D Fluent Emerald-Cyan-Sapphire Logo (50% Larger: 114 -> 172, Borderless) */}
-                <div className="mb-7">
-                  <HyperionLogo size={172} withGlow />
+              <div className="max-w-[1160px] mx-auto px-3.5 sm:px-6 relative z-10 flex flex-col items-center text-center">
+                {/* Centerpiece 3D Fluent Emerald-Cyan-Sapphire Logo (Responsive scaling on mobile) */}
+                <div className="mb-4 sm:mb-7 scale-75 sm:scale-90 lg:scale-100 origin-center">
+                  <FileManGLLogo size={172} withGlow />
                 </div>
 
                 {/* Centered Bold Headline with Middle-Icon Emerald-Cyan-Sapphire Gradient */}
-                <h1 className="font-sans text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.1] max-w-4xl">
+                <h1 className="font-sans text-2xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.15] sm:leading-[1.1] max-w-4xl px-1">
                   {dict.hero.titlePrefix}{' '}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#2FF58E] via-[#00C8FF] to-[#0066E6]">
                     {dict.hero.titleHighlight}
@@ -481,13 +513,13 @@ export function App() {
                 </h1>
 
                 {/* Concise, Uncluttered Subtitle */}
-                <p className="mt-4 font-sans text-sm sm:text-base text-slate-300/90 leading-relaxed max-w-2xl">
+                <p className="mt-3 sm:mt-4 font-sans text-xs sm:text-base text-slate-300/90 leading-relaxed max-w-2xl px-2">
                   Windows 11 sekmeli gezgin deneyimi, WebGL2 GPU sahnesi, 5 katmanlı NTFS ACL +
                   POSIX (0755) izin motoru ve sıfır kurulumlu VFS / Laravel / Node.js sürücüleri.
                 </p>
 
                 {/* Centered Primary Action Buttons */}
-                <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+                <div className="mt-5 sm:mt-7 grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-2.5 sm:gap-3 w-full sm:w-auto">
                   <a
                     href="/demo"
                     onClick={(e) => {
@@ -498,9 +530,10 @@ export function App() {
                       });
                     }}
                     style={{ color: '#ffffff' }}
-                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#18E092] via-[#00B4F5] to-[#0062D6] hover:brightness-110 font-sans text-xs sm:text-sm font-bold text-white flex items-center gap-2 shadow-xl shadow-cyan-500/25 transition"
+                    className="col-span-2 sm:col-span-1 px-5 sm:px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#18E092] via-[#00B4F5] to-[#0062D6] hover:brightness-110 font-sans text-xs sm:text-sm font-bold text-white flex items-center justify-center gap-2 shadow-xl shadow-cyan-500/25 transition"
                   >
-                    <Play className="w-4 h-4 fill-white text-white" /> {dict.hero.openDemoBtn}
+                    <Play className="w-4 h-4 fill-white text-white shrink-0" />{' '}
+                    <span>{dict.hero.openDemoBtn}</span>
                   </a>
 
                   <a
@@ -512,9 +545,10 @@ export function App() {
                         enableDualPane: false,
                       });
                     }}
-                    className="px-4 py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/90 hover:border-cyan-400/50 text-xs sm:text-sm font-semibold text-cyan-300 flex items-center gap-2 transition"
+                    className="px-3.5 sm:px-4 py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/90 hover:border-cyan-400/50 text-xs sm:text-sm font-semibold text-cyan-300 flex items-center justify-center gap-1.5 sm:gap-2 transition"
                   >
-                    <Cpu className="w-4 h-4 text-[#18E092]" /> {dict.hero.webglSceneBtn}
+                    <Cpu className="w-4 h-4 text-[#18E092] shrink-0" />{' '}
+                    <span className="truncate">{dict.hero.webglSceneBtn}</span>
                   </a>
 
                   <a
@@ -526,9 +560,10 @@ export function App() {
                         enableDualPane: false,
                       });
                     }}
-                    className="px-4 py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/90 hover:border-emerald-400/50 text-xs sm:text-sm font-semibold text-emerald-300 flex items-center gap-2 transition"
+                    className="px-3.5 sm:px-4 py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/90 hover:border-emerald-400/50 text-xs sm:text-sm font-semibold text-emerald-300 flex items-center justify-center gap-1.5 sm:gap-2 transition"
                   >
-                    <PieChart className="w-4 h-4 text-emerald-400" /> {dict.hero.diskMapBtn}
+                    <PieChart className="w-4 h-4 text-emerald-400 shrink-0" />{' '}
+                    <span className="truncate">{dict.hero.diskMapBtn}</span>
                   </a>
 
                   <a
@@ -537,38 +572,39 @@ export function App() {
                       e.preventDefault();
                       navigate('/documentation');
                     }}
-                    className="px-4 py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/90 text-xs sm:text-sm font-semibold text-slate-200 flex items-center gap-2 transition"
+                    className="col-span-2 sm:col-span-1 px-4 py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/90 text-xs sm:text-sm font-semibold text-slate-200 flex items-center justify-center gap-2 transition"
                   >
-                    <BookOpen className="w-4 h-4 text-sky-400" /> {dict.hero.docsBtn}
+                    <BookOpen className="w-4 h-4 text-sky-400 shrink-0" />{' '}
+                    <span>{dict.hero.docsBtn}</span>
                   </a>
                 </div>
 
                 {/* Minimal 4-Pillar Centered Feature Strip (SheetGL Style) */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-10 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 mt-7 sm:mt-10 w-full">
                   {[
                     {
-                      icon: <Cpu className="w-4 h-4 text-[#2FF58E]" />,
+                      icon: <Cpu className="w-4 h-4 text-[#2FF58E] shrink-0" />,
                       title: dict.hero.card1Title,
                       tag: '60 FPS GPU',
                       href: '/demo?view=webgl_spatial',
                       patch: { defaultViewMode: 'webgl_spatial' as ExplorerViewMode },
                     },
                     {
-                      icon: <Shield className="w-4 h-4 text-[#00C8FF]" />,
+                      icon: <Shield className="w-4 h-4 text-[#00C8FF] shrink-0" />,
                       title: dict.hero.card2Title,
                       tag: 'ACL + 0755',
                       href: '/demo',
                       patch: undefined,
                     },
                     {
-                      icon: <Server className="w-4 h-4 text-sky-400" />,
+                      icon: <Server className="w-4 h-4 text-sky-400 shrink-0" />,
                       title: dict.hero.card3Title,
                       tag: 'REST + VFS',
                       href: '/documentation/laravel',
                       patch: undefined,
                     },
                     {
-                      icon: <Sliders className="w-4 h-4 text-emerald-400" />,
+                      icon: <Sliders className="w-4 h-4 text-emerald-400 shrink-0" />,
                       title: dict.hero.card4Title,
                       tag: 'TR • EN • DE • RU',
                       href: '/configurator',
@@ -582,15 +618,15 @@ export function App() {
                         e.preventDefault();
                         navigate(item.href, item.patch);
                       }}
-                      className="px-4 py-3 rounded-2xl bg-slate-900/55 hover:bg-slate-900/90 border border-slate-800/90 hover:border-cyan-500/40 flex flex-col items-center text-center gap-1.5 transition group"
+                      className="px-4 py-3 rounded-2xl bg-slate-900/55 hover:bg-slate-900/90 border border-slate-800/90 hover:border-cyan-500/40 flex flex-row sm:flex-col items-center justify-between sm:justify-center text-left sm:text-center gap-2 sm:gap-1.5 transition group"
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         {item.icon}
-                        <span className="text-xs font-bold text-white group-hover:text-cyan-300 transition">
+                        <span className="text-xs font-bold text-white group-hover:text-cyan-300 transition truncate">
                           {item.title}
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-950/90 text-slate-400 border border-slate-800">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-950/90 text-slate-400 border border-slate-800 shrink-0">
                         {item.tag}
                       </span>
                     </a>
@@ -600,10 +636,10 @@ export function App() {
             </section>
 
             {/* Centered Interactive Live Workspace Preview */}
-            <main className="max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-8">
+            <main className="max-w-[1440px] w-full mx-auto px-2 sm:px-6 py-5 sm:py-8">
               <section className="space-y-3">
-                <div className="flex items-center justify-center gap-2 text-xs text-slate-400 text-center">
-                  <Zap className="w-3.5 h-3.5 text-[#2FF58E]" />
+                <div className="flex items-center justify-center gap-2 text-xs text-slate-400 text-center px-2">
+                  <Zap className="w-3.5 h-3.5 text-[#2FF58E] shrink-0" />
                   <span>{dict.hero.livePreviewHint}</span>
                 </div>
 
@@ -621,16 +657,16 @@ export function App() {
         )}
 
         {/* Centered Minimal Footer */}
-        <footer className="mt-auto border-t border-slate-800/80 bg-[#05080e] py-5 px-6 text-xs text-slate-500">
-          <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2.5">
-              <HyperionLogo size={22} />
+        <footer className="mt-auto border-t border-slate-800/80 bg-[#05080e] py-5 px-4 sm:px-6 text-xs text-slate-500">
+          <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-2.5 text-center sm:text-left">
+              <FileManGLLogo size={22} />
               <span className="text-slate-200 font-semibold">FileManGL v1.0.4</span>
               <span className="hidden md:inline">
                 — SOLID • WebGL2 • NTFS ACL/POSIX • i18n (TR/EN/DE/RU)
               </span>
             </div>
-            <div className="flex items-center gap-4 font-mono">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 font-mono">
               <a
                 href="/"
                 onClick={(e) => {

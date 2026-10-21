@@ -26,6 +26,7 @@ import {
 } from '../../core/drivers/seedFileSystem';
 import { PermissionEngine } from '../../core/services/PermissionEngine';
 import { QuotaEngine } from '../../core/services/QuotaEngine';
+import { ThumbnailCacheService } from '../../core/services/ThumbnailCacheService';
 import { WebGLSpatialViewport } from '../../core/webgl/WebGLSpatialViewport';
 import { WebGLDiskMapViewport } from '../../core/webgl/WebGLDiskMapViewport';
 import { WebGLImageShaderModal } from '../../core/webgl/WebGLImageShaderModal';
@@ -34,6 +35,7 @@ import {
   BatchRenameModal,
   CodeEditorModal,
   ConflictResolutionModal,
+  MediaPlayerModal,
   ShareLinkModal,
 } from '../modals/ExplorerModals';
 import { WindowsExplorerViews, renderCategoryIcon } from './WindowsExplorerViews';
@@ -277,10 +279,12 @@ export const FileManGL: React.FC<FileManGLProps> = ({
   );
 
   // ==========================================================================
-  // RESIZABLE LEFT & RIGHT SIDEBARS
+  // RESIZABLE LEFT & RIGHT SIDEBARS + MOBILE DRAWER STATES
   // ==========================================================================
   const [leftSidebarWidth, setLeftSidebarWidth] = useState<number>(240);
   const [rightSidebarWidth, setRightSidebarWidth] = useState<number>(300);
+  const [mobileTreeOpen, setMobileTreeOpen] = useState<boolean>(false);
+  const [mobileInspectorOpen, setMobileInspectorOpen] = useState<boolean>(false);
   const resizingSideRef = useRef<'left' | 'right' | null>(null);
   const resizeStartXRef = useRef<number>(0);
   const resizeStartWidthRef = useRef<number>(0);
@@ -357,9 +361,19 @@ export const FileManGL: React.FC<FileManGLProps> = ({
   const [securityModalNode, setSecurityModalNode] = useState<FileNode | null>(null);
   const [shaderModalNode, setShaderModalNode] = useState<FileNode | null>(null);
   const [codeModalNode, setCodeModalNode] = useState<FileNode | null>(null);
+  const [mediaModalNode, setMediaModalNode] = useState<FileNode | null>(null);
   const [shareModalNode, setShareModalNode] = useState<FileNode | null>(null);
   const [showBatchRename, setShowBatchRename] = useState<boolean>(false);
   const [pendingConflicts, setPendingConflicts] = useState<ConflictItem[] | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{
+    fileName: string;
+    currentIdx: number;
+    totalFiles: number;
+    percent: number;
+    stage: string;
+    bytesTransferred: number;
+    totalBytes: number;
+  } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -368,7 +382,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
 
   // Toast & Security Audit Log
   const [toast, setToast] = useState<{
-    type: 'success' | 'error' | 'info';
+    type: 'success' | 'error' | 'info' | 'warning';
     title: string;
     message: string;
   } | null>(null);
@@ -388,7 +402,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
 
   const notify = useCallback(
     (
-      type: 'success' | 'error' | 'info',
+      type: 'success' | 'error' | 'info' | 'warning',
       title: string,
       message: string,
       targetPath = '/'
@@ -403,7 +417,12 @@ export const FileManGL: React.FC<FileManGLProps> = ({
             actorRole: currentUser.role,
             action: title,
             targetPath,
-            status: type === 'error' ? 'denied' : type === 'info' ? 'warning' : 'allowed',
+            status:
+              type === 'error'
+                ? 'denied'
+                : type === 'info' || type === 'warning'
+                ? 'warning'
+                : 'allowed',
             details: message,
           },
           ...prev.slice(0, 49),
@@ -544,6 +563,11 @@ export const FileManGL: React.FC<FileManGLProps> = ({
       if (a.type === 'folder' && b.type !== 'folder') return -1;
       if (a.type !== 'folder' && b.type === 'folder') return 1;
 
+      if (a.type !== 'folder' && b.type !== 'folder') {
+        if (a.isUserUploaded && !b.isUserUploaded) return -1;
+        if (!a.isUserUploaded && b.isUserUploaded) return 1;
+      }
+
       let cmp = 0;
       if (sortField === 'name') {
         cmp = a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
@@ -636,6 +660,15 @@ export const FileManGL: React.FC<FileManGLProps> = ({
         return;
       }
 
+      if (
+        node.category === 'video' ||
+        node.category === 'audio' ||
+        (node.extension === '.pdf' && node.blobUrl)
+      ) {
+        setMediaModalNode(node);
+        return;
+      }
+
       if (node.category === 'image' && config.enableWebGLImageShaderStudio) {
         setShaderModalNode(node);
         return;
@@ -706,11 +739,64 @@ export const FileManGL: React.FC<FileManGLProps> = ({
     notify('success', 'Yeni Klasör Oluşturuldu', `"${candidate}" dizine eklendi.`, candidate);
   };
 
+  const handleDownloadNode = useCallback(
+    (node: FileNode) => {
+      const perm = PermissionEngine.evaluateNodePermissions(
+        node,
+        currentUser,
+        allNodes,
+        config
+      );
+      if (!perm.allowed.download) {
+        notify(
+          'error',
+          'İndirme Engellendi (EACCES)',
+          perm.reasons.download || 'Bu dosyayı indirme yetkiniz yok.',
+          node.name
+        );
+        return;
+      }
+
+      if (typeof document === 'undefined') return;
+      const a = document.createElement('a');
+      if (node.blobUrl) {
+        a.href = node.blobUrl;
+      } else if (node.thumbnailUrl && node.category === 'image') {
+        a.href = node.thumbnailUrl;
+      } else {
+        const payload =
+          node.content ||
+          JSON.stringify(
+            {
+              name: node.name,
+              size: node.size,
+              sha256: node.checksumSha256,
+              exportedAt: new Date().toISOString(),
+            },
+            null,
+            2
+          );
+        const blob = new Blob([payload], { type: node.mimeType || 'text/plain' });
+        a.href = URL.createObjectURL(blob);
+      }
+      a.download = node.name;
+      a.click();
+      notify(
+        'info',
+        'Dosya İndiriliyor',
+        `"${node.name}" (${QuotaEngine.formatBytes(node.size)}) yerel diskinize aktarılıyor.`,
+        node.name
+      );
+    },
+    [allNodes, config, currentUser, notify]
+  );
+
   const handleCreateFile = (
     customName?: string,
     customContent?: string,
     customBytes?: number,
-    customCategory?: FileCategory
+    customCategory?: FileCategory,
+    customDataUrl?: string
   ) => {
     if (!currentFolderPerm.allowed.write) {
       notify(
@@ -744,6 +830,21 @@ export const FileManGL: React.FC<FileManGLProps> = ({
     const extMatch = name.match(/(\.[a-zA-Z0-9]+)$/);
     const ext = extMatch ? extMatch[1].toLowerCase() : '.txt';
     const now = new Date().toISOString();
+    const sha256 = Date.now().toString(16).padStart(64, '0');
+
+    if (customDataUrl) {
+      ThumbnailCacheService.putThumbnail({
+        cacheKey: sha256,
+        thumbnailDataUrl: customDataUrl,
+        width: 1280,
+        height: 720,
+        palette: ['#3b82f6', '#ec4899', '#10b981'],
+        thumbByteSize: sizeBytes,
+        generatedAt: now,
+        generationMs: 1.2,
+        fromCache: false,
+      });
+    }
 
     const newFile: FileNode = {
       id: `fil_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -760,16 +861,27 @@ export const FileManGL: React.FC<FileManGLProps> = ({
       tags: ['Created'],
       trashed: false,
       content,
+      blobUrl: customDataUrl,
+      thumbnailUrl: customDataUrl,
+      isUserUploaded: Boolean(customDataUrl),
+      thumbnailMeta: customDataUrl
+        ? {
+            thumbByteSize: sizeBytes,
+            generationMs: 1.2,
+            fromCache: false,
+            format: 'image/png',
+          }
+        : undefined,
       imageMeta:
         customCategory === 'image' || ext === '.png'
           ? {
-              width: 3840,
-              height: 2160,
+              width: 1920,
+              height: 1080,
               palette: ['#3b82f6', '#ec4899', '#10b981'],
               pattern: 'nebula',
             }
           : undefined,
-      checksumSha256: Date.now().toString(16).padStart(64, '0'),
+      checksumSha256: sha256,
       security: {
         ownerId: currentUser.id,
         ownerName: currentUser.name,
@@ -781,7 +893,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
       },
     };
 
-    commitNodesUpdate([...allNodes, newFile]);
+    commitNodesUpdate([newFile, ...allNodes]);
     setSelectedIds(new Set([newFile.id]));
     if (!customName) setRenamingId(newFile.id);
     notify(
@@ -792,30 +904,149 @@ export const FileManGL: React.FC<FileManGLProps> = ({
     );
   };
 
-  // Real Browser File Upload into Managed Disk Volume
-  const handleExternalFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  // Real Browser File Upload into Managed Disk Volume (Input + Drag & Drop)
+  const processExternalFilesUpload = async (
+    files: FileList,
+    targetFolderId: string | null = currentFolderId
+  ) => {
     if (!files || files.length === 0) return;
 
-    if (!currentFolderPerm.allowed.upload) {
+    const targetFolderNode = targetFolderId
+      ? allNodes.find((n) => n.id === targetFolderId) || null
+      : null;
+    const folderPerm = targetFolderNode
+      ? PermissionEngine.evaluateNodePermissions(
+          targetFolderNode,
+          currentUser,
+          allNodes,
+          config
+        )
+      : currentFolderPerm;
+
+    if (!folderPerm.allowed.upload) {
       notify(
         'error',
         'Yükleme İzni Reddedildi (EACCES)',
-        currentFolderPerm.reasons.upload || 'Bu klasöre dosya yükleme yetkiniz yok.'
+        folderPerm.reasons.upload || 'Bu klasöre dosya yükleme yetkiniz yok.'
       );
-      e.target.value = '';
       return;
     }
 
+    const computeRealSha256 = async (file: File): Promise<string> => {
+      try {
+        if (typeof window !== 'undefined' && window.crypto?.subtle) {
+          const slice = file.slice(0, Math.min(file.size, 16 * 1024 * 1024));
+          const buf = await slice.arrayBuffer();
+          const hashBuf = await window.crypto.subtle.digest('SHA-256', buf);
+          return Array.from(new Uint8Array(hashBuf))
+            .map((b) => b.toString(16).padStart(2, '0'))
+            .join('');
+        }
+      } catch {
+        // Fallback if WebCrypto unavailable in test env
+      }
+      return `${file.size.toString(16)}${Date.now().toString(16)}`.padStart(64, 'a');
+    };
+
+    const extractVideoMetadataAndPoster = (
+      blobUrl: string
+    ): Promise<{
+      width: number;
+      height: number;
+      durationSec: number;
+      thumbnailUrl?: string;
+    }> =>
+      new Promise((resolve) => {
+        if (typeof document === 'undefined') {
+          resolve({ width: 1920, height: 1080, durationSec: 0 });
+          return;
+        }
+        let settled = false;
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+
+        const finish = (res: {
+          width: number;
+          height: number;
+          durationSec: number;
+          thumbnailUrl?: string;
+        }) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          video.removeAttribute('src');
+          resolve(res);
+        };
+
+        const timer = setTimeout(() => {
+          finish({
+            width: video.videoWidth || 1920,
+            height: video.videoHeight || 1080,
+            durationSec: Number.isFinite(video.duration) ? video.duration : 0,
+          });
+        }, 450);
+
+        video.onloadedmetadata = () => {
+          const dur = Number.isFinite(video.duration) ? video.duration : 0;
+          const seekTarget = dur > 0.5 ? Math.min(1.2, dur * 0.2) : 0.05;
+          try {
+            video.currentTime = seekTarget;
+          } catch {
+            finish({
+              width: video.videoWidth || 1920,
+              height: video.videoHeight || 1080,
+              durationSec: dur,
+            });
+          }
+        };
+
+        video.onseeked = () => {
+          let thumb: string | undefined;
+          try {
+            const w = video.videoWidth || 1280;
+            const h = video.videoHeight || 720;
+            const canvas = document.createElement('canvas');
+            const targetW = 360;
+            const targetH = Math.max(200, Math.round((h / w) * targetW));
+            canvas.width = targetW;
+            canvas.height = targetH;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(video, 0, 0, targetW, targetH);
+              thumb = canvas.toDataURL('image/jpeg', 0.85);
+            }
+          } catch {
+            thumb = undefined;
+          }
+          finish({
+            width: video.videoWidth || 1920,
+            height: video.videoHeight || 1080,
+            durationSec: Number.isFinite(video.duration) ? video.duration : 0,
+            thumbnailUrl: thumb,
+          });
+        };
+
+        video.onerror = () => {
+          finish({ width: 1920, height: 1080, durationSec: 0 });
+        };
+
+        video.src = blobUrl;
+      });
+
+    const fileList = Array.from(files);
     const added: FileNode[] = [];
     let runningNodes = [...allNodes];
 
-    for (const file of Array.from(files)) {
-      const simulatedBytes = Math.max(file.size, 512 * 1024);
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      const realBytes = file.size;
+
       const check = QuotaEngine.validateWriteOperation(
-        currentFolderId,
+        targetFolderId,
         file.name,
-        simulatedBytes,
+        realBytes,
         runningNodes,
         config
       );
@@ -824,52 +1055,193 @@ export const FileManGL: React.FC<FileManGLProps> = ({
         continue;
       }
 
+      setUploadProgress({
+        fileName: file.name,
+        currentIdx: i + 1,
+        totalFiles: fileList.length,
+        percent: 20,
+        stage: 'Binary Stream & SHA-256 Hesaplanıyor...',
+        bytesTransferred: Math.round(realBytes * 0.25),
+        totalBytes: realBytes,
+      });
+
       const extMatch = file.name.match(/(\.[a-zA-Z0-9]+)$/);
       const ext = extMatch ? extMatch[1].toLowerCase() : '';
       let cat: FileCategory = 'document';
-      if (['.png', '.jpg', '.jpeg', '.webp', '.svg'].includes(ext)) cat = 'image';
-      else if (['.ts', '.tsx', '.js', '.php', '.py', '.glsl', '.css', '.html'].includes(ext))
+      if (['.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif', '.bmp', '.ico'].includes(ext))
+        cat = 'image';
+      else if (
+        [
+          '.ts',
+          '.tsx',
+          '.js',
+          '.jsx',
+          '.php',
+          '.py',
+          '.glsl',
+          '.css',
+          '.html',
+          '.c',
+          '.cpp',
+          '.rs',
+          '.go',
+        ].includes(ext)
+      )
         cat = 'code';
-      else if (['.zip', '.rar', '.tar', '.gz'].includes(ext)) cat = 'archive';
-      else if (['.mp4', '.webm', '.mov'].includes(ext)) cat = 'video';
-      else if (['.json', '.sql', '.csv'].includes(ext)) cat = 'data';
+      else if (['.zip', '.rar', '.tar', '.gz', '.7z'].includes(ext)) cat = 'archive';
+      else if (['.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v'].includes(ext))
+        cat = 'video';
+      else if (['.mp3', '.wav', '.ogg', '.flac', '.m4a'].includes(ext)) cat = 'audio';
+      else if (['.json', '.sql', '.csv', '.xml', '.yaml', '.yml'].includes(ext))
+        cat = 'data';
+      else if (file.type.startsWith('video/')) cat = 'video';
+      else if (file.type.startsWith('image/')) cat = 'image';
+      else if (file.type.startsWith('audio/')) cat = 'audio';
+
+      const sha256 = await computeRealSha256(file);
+
+      setUploadProgress({
+        fileName: file.name,
+        currentIdx: i + 1,
+        totalFiles: fileList.length,
+        percent: 65,
+        stage:
+          cat === 'video'
+            ? 'Video Kodek & Poster Karesi Çıkarılıyor...'
+            : cat === 'image'
+            ? 'Görsel Çözünürlük Analizi Yapılıyor...'
+            : 'VFS Bloklarına Yazılıyor...',
+        bytesTransferred: Math.round(realBytes * 0.7),
+        totalBytes: realBytes,
+      });
+
+      let blobUrl: string | undefined;
+      try {
+        if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+          blobUrl = URL.createObjectURL(file);
+        } else {
+          blobUrl = `blob:local/${encodeURIComponent(file.name)}`;
+        }
+      } catch {
+        blobUrl = `blob:local/${encodeURIComponent(file.name)}`;
+      }
 
       let textContent: string | undefined;
-      if (cat === 'code' || cat === 'document' || cat === 'data') {
+      if ((cat === 'code' || cat === 'document' || cat === 'data') && ext !== '.pdf') {
         try {
-          textContent = await file.text();
+          if (realBytes <= 2 * 1024 * 1024) {
+            textContent = await file.text();
+          }
         } catch {
           textContent = undefined;
         }
       }
 
+      let thumbnailUrl: string | undefined;
+      let durationSec: number | undefined;
+      let mediaDimensions: { width: number; height: number } | undefined;
+      let extractedPalette: [string, string, string] = ['#06b6d4', '#6366f1', '#f43f5e'];
+      let thumbnailMeta: FileNode['thumbnailMeta'];
+
+      if (cat === 'video' && blobUrl) {
+        const t0 = performance.now();
+        await ThumbnailCacheService.persistBinaryBlob(sha256, file);
+        const cachedVideoThumb = await ThumbnailCacheService.getThumbnail(sha256);
+        const meta = await extractVideoMetadataAndPoster(blobUrl);
+        thumbnailUrl = cachedVideoThumb?.thumbnailDataUrl || meta.thumbnailUrl;
+        durationSec = meta.durationSec;
+        mediaDimensions = { width: meta.width, height: meta.height };
+        const genMs = Number((performance.now() - t0).toFixed(2));
+        const thumbBytes = thumbnailUrl ? Math.round((thumbnailUrl.length * 3) / 4) : 16384;
+        if (thumbnailUrl && !cachedVideoThumb) {
+          await ThumbnailCacheService.putThumbnail({
+            cacheKey: sha256,
+            thumbnailDataUrl: thumbnailUrl,
+            width: meta.width,
+            height: meta.height,
+            palette: extractedPalette,
+            thumbByteSize: thumbBytes,
+            generatedAt: new Date().toISOString(),
+            generationMs: genMs,
+            fromCache: false,
+          });
+        }
+        thumbnailMeta = {
+          thumbByteSize: thumbBytes,
+          generationMs: genMs,
+          fromCache: Boolean(cachedVideoThumb),
+          format: 'image/jpeg',
+        };
+      } else if (cat === 'image' && blobUrl) {
+        const cachedEntry = await ThumbnailCacheService.generateAndCacheImageThumbnail(
+          file,
+          sha256,
+          blobUrl,
+          320
+        );
+        thumbnailUrl = cachedEntry.thumbnailDataUrl || blobUrl;
+        mediaDimensions = { width: cachedEntry.width, height: cachedEntry.height };
+        extractedPalette = cachedEntry.palette;
+        thumbnailMeta = {
+          thumbByteSize: cachedEntry.thumbByteSize,
+          generationMs: cachedEntry.generationMs,
+          fromCache: cachedEntry.fromCache,
+          format: 'image/webp',
+        };
+      } else {
+        await ThumbnailCacheService.persistBinaryBlob(sha256, file);
+      }
+
+      setUploadProgress({
+        fileName: file.name,
+        currentIdx: i + 1,
+        totalFiles: fileList.length,
+        percent: 100,
+        stage: 'Thumbnail Önbellek & VFS Kaydı Tamamlandı',
+        bytesTransferred: realBytes,
+        totalBytes: realBytes,
+      });
+
       const now = new Date().toISOString();
       const node: FileNode = {
         id: `up_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        parentId: currentFolderId,
+        parentId: targetFolderId,
         name: file.name,
         type: cat === 'archive' ? 'archive' : 'file',
         category: cat,
         extension: ext,
-        mimeType: file.type || 'application/octet-stream',
-        size: simulatedBytes,
+        mimeType:
+          file.type ||
+          (cat === 'video'
+            ? 'video/mp4'
+            : cat === 'audio'
+            ? 'audio/mpeg'
+            : cat === 'image'
+            ? 'image/png'
+            : 'application/octet-stream'),
+        size: realBytes,
         createdAt: now,
         updatedAt: now,
         starred: false,
-        tags: ['Uploaded'],
+        tags: ['Uploaded', ...(thumbnailMeta ? ['ThumbCached'] : [])],
         colorTag: 'emerald',
         trashed: false,
         content: textContent,
+        blobUrl,
+        thumbnailUrl,
+        thumbnailMeta,
+        durationSec,
+        isUserUploaded: true,
         imageMeta:
-          cat === 'image'
+          cat === 'image' || cat === 'video'
             ? {
-                width: 2560,
-                height: 1440,
-                palette: ['#06b6d4', '#6366f1', '#f43f5e'],
+                width: mediaDimensions?.width || 1920,
+                height: mediaDimensions?.height || 1080,
+                palette: extractedPalette,
                 pattern: 'aurora',
               }
             : undefined,
-        checksumSha256: Date.now().toString(16).padStart(64, 'a'),
+        checksumSha256: sha256,
         security: {
           ownerId: currentUser.id,
           ownerName: currentUser.name,
@@ -882,18 +1254,32 @@ export const FileManGL: React.FC<FileManGLProps> = ({
       };
 
       added.push(node);
-      runningNodes = [...runningNodes, node];
+      runningNodes = [node, ...runningNodes];
     }
+
+    setUploadProgress(null);
 
     if (added.length > 0) {
       commitNodesUpdate(runningNodes);
       setSelectedIds(new Set(added.map((a) => a.id)));
+      const first = added[0];
       notify(
         'success',
-        'Dosya Yükleme Tamamlandı',
-        `${added.length} dosya başarıyla diske aktarıldı.`
+        'Gerçek Dosya Yükleme Tamamlandı',
+        added.length === 1
+          ? `"${first.name}" (${QuotaEngine.formatBytes(first.size)} • SHA-256: ${first.checksumSha256.slice(0, 10)}…) başarıyla aktarıldı.`
+          : `${added.length} dosya (${QuotaEngine.formatBytes(
+              added.reduce((acc, n) => acc + n.size, 0)
+            )}) başarıyla diske aktarıldı.`,
+        first.name
       );
     }
+  };
+
+  const handleExternalFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await processExternalFilesUpload(files, currentFolderId);
     e.target.value = '';
   };
 
@@ -943,11 +1329,13 @@ export const FileManGL: React.FC<FileManGLProps> = ({
     notify('success', 'Yeniden Adlandırıldı', `"${target.name}" -> "${trimmed}"`, trimmed);
   };
 
-  // Copy & Cut to Clipboard
+  // Copy & Cut to Clipboard (supports partial selection when some items are locked/restricted)
   const handleCopyOrCut = useCallback(
     (mode: 'copy' | 'cut') => {
       if (selectedIds.size === 0) return;
       const targets = allNodes.filter((n) => selectedIds.has(n.id));
+      const allowedIds: string[] = [];
+      const blockedItems: Array<{ name: string; reason: string }> = [];
 
       for (const t of targets) {
         const perm = PermissionEngine.evaluateNodePermissions(
@@ -957,31 +1345,51 @@ export const FileManGL: React.FC<FileManGLProps> = ({
           config
         );
         if (mode === 'copy' && !perm.allowed.read) {
-          notify('error', 'Kopyalama Engellendi', `"${t.name}": ${perm.reasons.read}`);
-          return;
+          blockedItems.push({ name: t.name, reason: perm.reasons.read });
+          continue;
         }
         if (mode === 'cut' && (!perm.allowed.write || !perm.allowed.delete)) {
-          notify(
-            'error',
-            'Kesme (Taşıma) Engellendi',
-            `"${t.name}": ${perm.reasons.delete || perm.reasons.write}`
-          );
-          return;
+          blockedItems.push({
+            name: t.name,
+            reason: perm.reasons.delete || perm.reasons.write,
+          });
+          continue;
         }
+        allowedIds.push(t.id);
+      }
+
+      if (allowedIds.length === 0) {
+        const first = blockedItems[0];
+        notify(
+          'error',
+          mode === 'copy' ? 'Kopyalama Engellendi' : 'Kesme (Taşıma) Engellendi',
+          first ? `"${first.name}": ${first.reason}` : 'İzin yetersiz.'
+        );
+        return;
       }
 
       setClipboard({
         mode,
-        nodeIds: Array.from(selectedIds),
+        nodeIds: allowedIds,
         sourceParentId: currentFolderId,
         timestamp: Date.now(),
       });
 
-      notify(
-        'info',
-        mode === 'copy' ? 'Panoya Kopyalandı (Ctrl+C)' : 'Panoya Kesildi (Ctrl+X)',
-        `${selectedIds.size} öğe panoya alındı. Diğer sekmelerde veya klasörlerde Ctrl+V ile yapıştırabilirsiniz.`
-      );
+      if (blockedItems.length > 0) {
+        notify(
+          'warning',
+          mode === 'copy' ? 'Kısmi Kopyalama (Ctrl+C)' : 'Kısmi Kesme (Ctrl+X)',
+          `${allowedIds.length} öğe panoya alındı. ${blockedItems.length} kilitli/izinsiz öğe atlandı (${blockedItems
+            .map((b) => b.name)
+            .join(', ')}).`
+        );
+      } else {
+        notify(
+          'info',
+          mode === 'copy' ? 'Panoya Kopyalandı (Ctrl+C)' : 'Panoya Kesildi (Ctrl+X)',
+          `${allowedIds.length} öğe panoya alındı. Diğer sekmelerde veya klasörlerde Ctrl+V ile yapıştırabilirsiniz.`
+        );
+      }
     },
     [allNodes, config, currentFolderId, currentUser, notify, selectedIds]
   );
@@ -1128,6 +1536,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
   );
 
   // Move via Drag & Drop into a Folder (or Root Volume when targetFolderId is null)
+  // Moves all permitted items even if some selected items in the batch are locked/restricted
   const handleDropNodesIntoFolder = (targetFolderId: string | null, draggedIds: string[]) => {
     const targetFolder = targetFolderId
       ? allNodes.find((n) => n.id === targetFolderId)
@@ -1152,6 +1561,8 @@ export const FileManGL: React.FC<FileManGLProps> = ({
     }
 
     const movableIds: string[] = [];
+    const blockedNodes: Array<{ id: string; name: string; reason: string }> = [];
+
     for (const id of draggedIds) {
       if (id === targetFolderId) continue;
       const node = allNodes.find((n) => n.id === id);
@@ -1163,13 +1574,26 @@ export const FileManGL: React.FC<FileManGLProps> = ({
         config
       );
       if (!perm.allowed.delete || !perm.allowed.write) {
-        notify('error', 'Taşıma Reddedildi', `"${node.name}" taşınamaz: ${perm.reasons.delete}`);
-        return;
+        blockedNodes.push({
+          id: node.id,
+          name: node.name,
+          reason: perm.reasons.delete || perm.reasons.write,
+        });
+        continue;
       }
       movableIds.push(id);
     }
 
-    if (movableIds.length === 0) return;
+    if (movableIds.length === 0) {
+      if (blockedNodes.length > 0) {
+        notify(
+          'error',
+          'Taşıma Reddedildi',
+          `"${blockedNodes[0].name}" taşınamaz: ${blockedNodes[0].reason}`
+        );
+      }
+      return;
+    }
 
     const updated = allNodes.map((n) =>
       movableIds.includes(n.id)
@@ -1177,19 +1601,33 @@ export const FileManGL: React.FC<FileManGLProps> = ({
         : n
     );
     commitNodesUpdate(updated);
+    setSelectedIds(new Set(blockedNodes.map((b) => b.id)));
+
     const destLabel = targetFolder ? targetFolder.name : `${config.volumeName} (D:)`;
-    notify(
-      'success',
-      'Sürükle & Bırak Taşıma',
-      `${movableIds.length} öğe "${destLabel}" konumuna taşındı.`
-    );
+    if (blockedNodes.length > 0) {
+      notify(
+        'warning',
+        'Taşınabilir Öğeler Aktarıldı',
+        `${movableIds.length} öğe "${destLabel}" konumuna taşındı. Kilitli/izinsiz ${
+          blockedNodes.length
+        } öğe (${blockedNodes.map((b) => b.name).join(', ')}) yerinde bırakıldı.`
+      );
+    } else {
+      notify(
+        'success',
+        'Sürükle & Bırak Taşıma',
+        `${movableIds.length} öğe "${destLabel}" konumuna taşındı.`
+      );
+    }
   };
 
-  // Trash / Permanent Delete / Restore
+  // Trash / Permanent Delete / Restore (deletes all permitted items even if some in selection are locked)
   const handleDeleteSelected = useCallback(
     (forcePermanent = false) => {
       if (selectedIds.size === 0) return;
       const targets = allNodes.filter((n) => selectedIds.has(n.id));
+      const deletableIds = new Set<string>();
+      const blockedNodes: Array<{ id: string; name: string; reason: string }> = [];
 
       for (const t of targets) {
         const perm = PermissionEngine.evaluateNodePermissions(
@@ -1199,36 +1637,51 @@ export const FileManGL: React.FC<FileManGLProps> = ({
           config
         );
         if (!perm.allowed.delete) {
-          notify(
-            'error',
-            'Silme İşlemi Reddedildi (EACCES)',
-            `"${t.name}": ${perm.reasons.delete}`,
-            t.name
-          );
-          return;
+          blockedNodes.push({
+            id: t.id,
+            name: t.name,
+            reason: perm.reasons.delete,
+          });
+          continue;
         }
+        deletableIds.add(t.id);
+      }
+
+      if (deletableIds.size === 0) {
+        const first = blockedNodes[0];
+        notify(
+          'error',
+          'Silme İşlemi Reddedildi (EACCES)',
+          first ? `"${first.name}": ${first.reason}` : 'Silme yetkiniz yok.',
+          first?.name
+        );
+        return;
       }
 
       if (!config.enableRecycleBin || forcePermanent || navSection === 'trash') {
-        const next = allNodes.filter((n) => !selectedIds.has(n.id));
+        const next = allNodes.filter((n) => !deletableIds.has(n.id));
         commitNodesUpdate(next);
-        setSelectedIds(new Set());
+        setSelectedIds(new Set(blockedNodes.map((b) => b.id)));
         notify(
-          'info',
+          blockedNodes.length > 0 ? 'warning' : 'info',
           'Kalıcı Olarak Silindi',
-          `${targets.length} öğe diskten kalıcı olarak kaldırıldı.`
+          blockedNodes.length > 0
+            ? `${deletableIds.size} öğe silindi, kilitli/izinsiz ${blockedNodes.length} öğe atlandı.`
+            : `${deletableIds.size} öğe diskten kalıcı olarak kaldırıldı.`
         );
       } else {
         const now = new Date().toISOString();
         const next = allNodes.map((n) =>
-          selectedIds.has(n.id) ? { ...n, trashed: true, trashedAt: now } : n
+          deletableIds.has(n.id) ? { ...n, trashed: true, trashedAt: now } : n
         );
         commitNodesUpdate(next);
-        setSelectedIds(new Set());
+        setSelectedIds(new Set(blockedNodes.map((b) => b.id)));
         notify(
-          'info',
+          blockedNodes.length > 0 ? 'warning' : 'info',
           'Geri Dönüşüm Kutusuna Taşındı',
-          `${targets.length} öğe çöp kutusuna gönderildi.`
+          blockedNodes.length > 0
+            ? `${deletableIds.size} öğe çöp kutusuna gönderildi, kilitli/izinsiz ${blockedNodes.length} öğe atlandı.`
+            : `${deletableIds.size} öğe çöp kutusuna gönderildi.`
         );
       }
     },
@@ -1558,7 +2011,10 @@ export const FileManGL: React.FC<FileManGLProps> = ({
             <div key={fld.id}>
               <div
                 style={{ paddingLeft: `${depth * 14 + 8}px` }}
-                onClick={() => navigateActiveTab(fld.id, 'volume')}
+                onClick={() => {
+                  navigateActiveTab(fld.id, 'volume');
+                  setMobileTreeOpen(false);
+                }}
                 onAuxClick={(e) => {
                   if (e.button === 1) {
                     e.preventDefault();
@@ -1581,7 +2037,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                   e.stopPropagation();
                   try {
                     const raw =
-                      e.dataTransfer.getData('application/hyperion-nodes') ||
+                      e.dataTransfer.getData('application/filemangl-nodes') ||
                       e.dataTransfer.getData('text/plain');
                     if (!raw) return;
                     const ids: string[] = JSON.parse(raw);
@@ -1688,7 +2144,11 @@ export const FileManGL: React.FC<FileManGLProps> = ({
       }}
       className={`flex flex-col bg-[#0b101b] text-slate-100 border border-slate-800/90 shadow-2xl overflow-hidden ${
         config.theme === 'light' ? 'theme-light' : ''
-      } ${isFullscreen ? 'fixed inset-0 z-50 rounded-none' : 'rounded-2xl h-[780px]'}`}
+      } ${
+        isFullscreen
+          ? 'fixed inset-0 z-50 rounded-none'
+          : 'rounded-2xl h-[680px] sm:h-[780px]'
+      }`}
     >
       {/* Hidden Native File Input for Real File Uploads */}
       <input
@@ -1702,7 +2162,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
       {/* ====================================================================
           ROW 1: WINDOWS 11 MULTI-TAB BAR (Sekmeli Dosya Gezgini Üst Çubuğu)
       ==================================================================== */}
-      <div className="px-2 pt-1.5 bg-[#080c14] border-b border-slate-800/90 flex items-end justify-between gap-2 select-none">
+      <div className="px-1.5 sm:px-2 pt-1.5 bg-[#080c14] border-b border-slate-800/90 flex items-end justify-between gap-1.5 sm:gap-2 select-none">
         {/* Left: Browser-style Folder Tabs + '+' New Tab Button */}
         <div className="flex items-end gap-1 overflow-x-auto no-scrollbar min-w-0 flex-1">
           {tabs.map((tab) => {
@@ -1744,7 +2204,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                 onAuxClick={(e) => {
                   if (e.button === 1) handleCloseTab(tab.id, e);
                 }}
-                className={`group relative flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-t-lg text-xs cursor-pointer transition min-w-[140px] max-w-[220px] border-t border-x ${
+                className={`group relative flex items-center gap-1.5 sm:gap-2 pl-2 sm:pl-3 pr-1.5 sm:pr-2 py-1 sm:py-1.5 rounded-t-lg text-[11px] sm:text-xs cursor-pointer transition min-w-[105px] sm:min-w-[140px] max-w-[160px] sm:max-w-[220px] border-t border-x ${
                   isActive
                     ? 'bg-[#101726] text-white font-semibold border-slate-700/90 shadow-sm'
                     : 'bg-slate-900/40 text-slate-400 hover:bg-slate-900/80 hover:text-slate-200 border-transparent'
@@ -1785,11 +2245,11 @@ export const FileManGL: React.FC<FileManGLProps> = ({
         </div>
 
         {/* Right: Role Switcher, Language (TR/EN/DE), Theme & Fullscreen */}
-        <div className="flex items-center gap-1.5 pb-1.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 pb-1.5 shrink-0">
           {/* Active Role Identity Switcher */}
-          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-md px-2 py-0.5">
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-md px-1.5 sm:px-2 py-0.5">
             <span
-              className="material-symbols-outlined text-emerald-400"
+              className="material-symbols-outlined text-emerald-400 shrink-0"
               style={{ fontSize: '15px' }}
             >
               verified_user
@@ -1807,7 +2267,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                   );
                 }
               }}
-              className="bg-transparent text-[11px] font-semibold text-white focus:outline-none cursor-pointer"
+              className="bg-transparent text-[11px] font-semibold text-white focus:outline-none cursor-pointer max-w-[92px] sm:max-w-none truncate"
             >
               {DEMO_USERS.map((u) => (
                 <option key={u.id} value={u.id} className="bg-slate-900 text-white">
@@ -1862,9 +2322,24 @@ export const FileManGL: React.FC<FileManGLProps> = ({
           ROW 2: WINDOWS 11 NAVIGATION ARROWS + BREADCRUMB BAR + SEARCH BOX
       ==================================================================== */}
       {config.enableBreadcrumbs && (
-        <div className="px-2.5 py-1.5 bg-[#101726] border-b border-slate-800/90 flex items-center gap-2 select-none">
-          {/* Back / Forward / Up / Refresh Buttons with Google Material Symbols */}
+        <div className="px-2 sm:px-2.5 py-1.5 bg-[#101726] border-b border-slate-800/90 flex flex-wrap sm:flex-nowrap items-center gap-1.5 sm:gap-2 select-none">
+          {/* Mobile Left Folder Tree Drawer Toggle + Back / Forward / Up / Refresh Buttons */}
           <div className="flex items-center gap-0.5 shrink-0">
+            {config.enableFolderTree && (
+              <button
+                onClick={() => setMobileTreeOpen((v) => !v)}
+                className={`md:hidden w-7 h-7 rounded-md flex items-center justify-center transition mr-0.5 ${
+                  mobileTreeOpen
+                    ? 'bg-blue-600/30 text-blue-300 border border-blue-500/50'
+                    : 'hover:bg-slate-800 text-slate-200'
+                }`}
+                title="Klasör Ağacını Aç/Kapat"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                  left_panel_open
+                </span>
+              </button>
+            )}
             <button
               disabled={activeTab.historyIndex <= 0}
               onClick={handleTabBack}
@@ -1919,7 +2394,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
           </div>
 
           {/* Center Windows 11 Breadcrumb Box */}
-          <div className="flex-1 min-w-0 flex items-center justify-between gap-2 bg-slate-950/90 border border-slate-800 rounded-md px-2.5 py-1 text-xs overflow-x-auto no-scrollbar">
+          <div className="flex-1 min-w-[140px] flex items-center justify-between gap-2 bg-slate-950/90 border border-slate-800 rounded-md px-2 sm:px-2.5 py-1 text-xs overflow-x-auto no-scrollbar">
             <div className="flex items-center gap-1 min-w-0">
               <button
                 onClick={() => navigateActiveTab(null, 'volume')}
@@ -1931,7 +2406,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                 >
                   computer
                 </span>
-                <span>Bu bilgisayar</span>
+                <span className="hidden xs:inline sm:inline">Bu bilgisayar</span>
               </button>
 
               <span
@@ -1954,7 +2429,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                   e.stopPropagation();
                   try {
                     const raw =
-                      e.dataTransfer.getData('application/hyperion-nodes') ||
+                      e.dataTransfer.getData('application/filemangl-nodes') ||
                       e.dataTransfer.getData('text/plain');
                     if (!raw) return;
                     const ids: string[] = JSON.parse(raw);
@@ -2014,7 +2489,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                         e.stopPropagation();
                         try {
                           const raw =
-                            e.dataTransfer.getData('application/hyperion-nodes') ||
+                            e.dataTransfer.getData('application/filemangl-nodes') ||
                             e.dataTransfer.getData('text/plain');
                           if (!raw) return;
                           const ids: string[] = JSON.parse(raw);
@@ -2025,7 +2500,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                           // ignore
                         }
                       }}
-                      className={`px-1.5 py-0.5 rounded hover:bg-slate-800 truncate max-w-[180px] transition ${
+                      className={`px-1.5 py-0.5 rounded hover:bg-slate-800 truncate max-w-[140px] sm:max-w-[180px] transition ${
                         idx === breadcrumbs.length - 1
                           ? 'text-white font-semibold'
                           : 'text-slate-300'
@@ -2046,8 +2521,8 @@ export const FileManGL: React.FC<FileManGLProps> = ({
             </div>
           </div>
 
-          {/* Right Windows 11 Search Box */}
-          <div className="relative w-48 sm:w-64 shrink-0">
+          {/* Right Windows 11 Search Box (Full-width second row on mobile < sm, inline on sm+) */}
+          <div className="relative w-full sm:w-52 md:w-64 shrink-0">
             <input
               type="text"
               placeholder={
@@ -2081,15 +2556,15 @@ export const FileManGL: React.FC<FileManGLProps> = ({
       )}
 
       {/* ====================================================================
-          ROW 3: WINDOWS 11 SINGLE-ROW COMMAND TOOLBAR (Tek Satır & Google Icons)
+          ROW 3: WINDOWS 11 COMMAND TOOLBAR (Responsive Wrap on Mobile / Single Row Desktop)
       ==================================================================== */}
       {config.enableRibbonToolbar && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="relative px-3 h-11 bg-[#0d1320] border-b border-slate-800/90 flex items-center justify-between gap-2 select-none whitespace-nowrap"
+          className="relative px-2 sm:px-3 py-1 lg:py-0 min-h-[44px] lg:h-11 bg-[#0d1320] border-b border-slate-800/90 flex flex-wrap items-center justify-between gap-y-1 gap-x-1.5 select-none whitespace-nowrap"
         >
           {/* Left & Center Windows 11 Command Group */}
-          <div className="flex items-center gap-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-0.5 sm:gap-1 min-w-0">
             {/* '+ Yeni v' Split/Dropdown Button */}
             <div className="relative">
               <button
@@ -2335,7 +2810,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
               </button>
 
               {openToolbarMenu === 'sort' && (
-                <div className="absolute left-0 top-full mt-1 z-50 w-56 rounded-xl bg-[#111827] border border-slate-700 shadow-2xl py-1.5 text-xs text-slate-200">
+                <div className="absolute left-0 sm:left-0 top-full mt-1 z-50 w-56 max-w-[calc(100vw-24px)] rounded-xl bg-[#111827] border border-slate-700 shadow-2xl py-1.5 text-xs text-slate-200 whitespace-normal">
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Sıralama Ölçütü
                   </div>
@@ -2464,7 +2939,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
               </button>
 
               {openToolbarMenu === 'view' && (
-                <div className="absolute left-0 top-full mt-1 z-50 w-60 rounded-xl bg-[#111827] border border-slate-700 shadow-2xl py-1.5 text-xs text-slate-200">
+                <div className="absolute left-0 top-full mt-1 z-50 w-60 max-w-[calc(100vw-24px)] rounded-xl bg-[#111827] border border-slate-700 shadow-2xl py-1.5 text-xs text-slate-200 whitespace-normal">
                   {(
                     [
                       ['extra_large_icons', 'grid_view', dict.explorer.viewExtraLarge],
@@ -2606,7 +3081,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
               </button>
 
               {openToolbarMenu === 'more' && (
-                <div className="absolute left-0 top-full mt-1 z-50 w-64 rounded-xl bg-[#111827] border border-slate-700 shadow-2xl py-1.5 text-xs text-slate-200">
+                <div className="absolute right-0 sm:left-0 top-full mt-1 z-50 w-64 max-w-[calc(100vw-24px)] rounded-xl bg-[#111827] border border-slate-700 shadow-2xl py-1.5 text-xs text-slate-200 whitespace-normal">
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
                     <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
                       bolt
@@ -2801,12 +3276,20 @@ export const FileManGL: React.FC<FileManGLProps> = ({
 
             {/* Windows 11 'Ayrıntılar' (Details Pane) Toggle Button */}
             <button
-              onClick={() =>
-                onConfigChange?.({
-                  enableDetailsInspector: !config.enableDetailsInspector,
-                })
-              }
-              className={`px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 border transition ${
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                  const nextOpen = !mobileInspectorOpen;
+                  setMobileInspectorOpen(nextOpen);
+                  if (nextOpen && !config.enableDetailsInspector) {
+                    onConfigChange?.({ enableDetailsInspector: true });
+                  }
+                } else {
+                  onConfigChange?.({
+                    enableDetailsInspector: !config.enableDetailsInspector,
+                  });
+                }
+              }}
+              className={`px-2 sm:px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 border transition ${
                 config.enableDetailsInspector
                   ? 'bg-slate-800 border-slate-700 text-white shadow-sm'
                   : 'border-transparent text-slate-300 hover:bg-slate-800/70'
@@ -2828,19 +3311,53 @@ export const FileManGL: React.FC<FileManGLProps> = ({
       {/* ====================================================================
           ROW 4: MAIN WORKSPACE (Resizable Left Sidebar + Center + Resizable Right Details)
       ==================================================================== */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* LEFT SIDEBAR: RESIZABLE NAVIGATION PANE */}
+      <div className="relative flex-1 flex overflow-hidden">
+        {/* LEFT SIDEBAR: RESIZABLE NAVIGATION PANE + MOBILE SLIDE-OVER DRAWER */}
         {config.enableFolderTree && (
           <>
+            {mobileTreeOpen && (
+              <div
+                onClick={() => setMobileTreeOpen(false)}
+                className="absolute inset-0 bg-black/60 backdrop-blur-[1px] z-30 md:hidden"
+              />
+            )}
             <div
               style={{ width: `${leftSidebarWidth}px` }}
-              className="bg-[#0d131f] border-r border-slate-800/90 flex flex-col justify-between shrink-0 select-none hidden md:flex"
+              className={`bg-[#0d131f] border-r border-slate-800/90 flex-col justify-between shrink-0 select-none ${
+                mobileTreeOpen
+                  ? 'absolute inset-y-0 left-0 z-40 flex max-w-[85vw] shadow-2xl md:static'
+                  : 'hidden md:flex'
+              }`}
             >
               <div className="p-2 space-y-3 overflow-y-auto flex-1">
+                {/* Mobile Drawer Close Header */}
+                <div className="flex md:hidden items-center justify-between px-2 py-1 border-b border-slate-800/80 mb-1">
+                  <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+                    <span
+                      className="material-symbols-outlined text-blue-400"
+                      style={{ fontSize: '16px' }}
+                    >
+                      folder_open
+                    </span>
+                    <span>Gezinti Bölmesi</span>
+                  </span>
+                  <button
+                    onClick={() => setMobileTreeOpen(false)}
+                    className="w-6 h-6 rounded hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                      close
+                    </span>
+                  </button>
+                </div>
+
                 {/* Pin / Quick Access Section */}
                 <div className="space-y-0.5 text-xs">
                   <button
-                    onClick={() => navigateActiveTab(null, 'volume')}
+                    onClick={() => {
+                      navigateActiveTab(null, 'volume');
+                      setMobileTreeOpen(false);
+                    }}
                     className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between transition ${
                       navSection === 'volume' && currentFolderId === null
                         ? 'bg-blue-600/20 text-blue-300 font-semibold'
@@ -2862,7 +3379,10 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                   </button>
 
                   <button
-                    onClick={() => setNavSection('starred')}
+                    onClick={() => {
+                      setNavSection('starred');
+                      setMobileTreeOpen(false);
+                    }}
                     className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between transition ${
                       navSection === 'starred'
                         ? 'bg-amber-500/20 text-amber-300 font-semibold'
@@ -2884,7 +3404,10 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                   </button>
 
                   <button
-                    onClick={() => setNavSection('shared')}
+                    onClick={() => {
+                      setNavSection('shared');
+                      setMobileTreeOpen(false);
+                    }}
                     className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between transition ${
                       navSection === 'shared'
                         ? 'bg-emerald-500/20 text-emerald-300 font-semibold'
@@ -2906,7 +3429,10 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                   </button>
 
                   <button
-                    onClick={() => setNavSection('locked')}
+                    onClick={() => {
+                      setNavSection('locked');
+                      setMobileTreeOpen(false);
+                    }}
                     className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between transition ${
                       navSection === 'locked'
                         ? 'bg-rose-500/20 text-rose-300 font-semibold'
@@ -2929,7 +3455,10 @@ export const FileManGL: React.FC<FileManGLProps> = ({
 
                   {config.enableRecycleBin && (
                     <button
-                      onClick={() => setNavSection('trash')}
+                      onClick={() => {
+                        setNavSection('trash');
+                        setMobileTreeOpen(false);
+                      }}
                       className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between transition ${
                         navSection === 'trash'
                           ? 'bg-rose-500/20 text-rose-300 font-semibold'
@@ -3014,9 +3543,9 @@ export const FileManGL: React.FC<FileManGLProps> = ({
         )}
 
         {/* CENTER VIEWPORT (Supports Single or Dual-Pane Commander Mode) */}
-        <div className="flex-1 flex overflow-hidden bg-[#0b101b] relative min-w-0">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-[#0b101b] relative min-w-0">
           {/* Primary Viewport */}
-          <div className="flex-1 h-full overflow-hidden relative flex flex-col min-w-0">
+          <div className="flex-1 h-full overflow-hidden relative flex flex-col min-w-0 min-h-0">
             {viewMode === 'webgl_spatial' && config.enableWebGLAcceleration ? (
               <WebGLSpatialViewport
                 nodes={visibleNodes}
@@ -3087,23 +3616,26 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                   }
                 }}
                 onDropNodesIntoFolder={handleDropNodesIntoFolder}
+                onExternalFilesDropped={(files, targetFolderId) =>
+                  processExternalFilesUpload(files, targetFolderId ?? currentFolderId)
+                }
               />
             )}
           </div>
 
-          {/* Optional Secondary Dual-Pane Viewport */}
+          {/* Optional Secondary Dual-Pane Viewport (Stacks vertically on mobile, side-by-side on md+) */}
           {config.enableDualPane && (
-            <div className="w-1/2 h-full border-l border-slate-800 bg-[#0d1320] flex flex-col">
-              <div className="px-3 py-2 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <Columns className="w-3.5 h-3.5 text-cyan-400" />
-                  <span className="font-semibold text-white">
+            <div className="w-full md:w-1/2 h-1/2 md:h-full border-t md:border-t-0 md:border-l border-slate-800 bg-[#0d1320] flex flex-col min-h-0">
+              <div className="px-2.5 sm:px-3 py-2 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Columns className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span className="font-semibold text-white truncate">
                     {dict.explorer.secondaryPane}
                   </span>
                   <select
                     value={secondaryFolderId || ''}
                     onChange={(e) => setSecondaryFolderId(e.target.value || null)}
-                    className="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-xs text-cyan-300"
+                    className="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-xs text-cyan-300 max-w-[140px] sm:max-w-none truncate"
                   >
                     <option value="">/ ({dict.explorer.rootVolume})</option>
                     {allNodes
@@ -3125,7 +3657,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                       Array.from(selectedIds)
                     );
                   }}
-                  className="px-2.5 py-1 rounded bg-cyan-600/25 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-600/35 disabled:opacity-35 text-[11px] font-medium"
+                  className="px-2.5 py-1 rounded bg-cyan-600/25 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-600/35 disabled:opacity-35 text-[11px] font-medium shrink-0"
                 >
                   {dict.explorer.transferHere}
                 </button>
@@ -3157,9 +3689,15 @@ export const FileManGL: React.FC<FileManGLProps> = ({
           )}
         </div>
 
-        {/* RIGHT SIDEBAR: RESIZABLE WINDOWS 11 'AYRINTILAR' (DETAILS) PANE */}
+        {/* RIGHT SIDEBAR: RESIZABLE WINDOWS 11 'AYRINTILAR' (DETAILS) PANE + MOBILE DRAWER */}
         {config.enableDetailsInspector && (
           <>
+            {mobileInspectorOpen && (
+              <div
+                onClick={() => setMobileInspectorOpen(false)}
+                className="absolute inset-0 bg-black/60 backdrop-blur-[1px] z-30 lg:hidden"
+              />
+            )}
             {/* RIGHT SIDEBAR DRAG RESIZE HANDLE */}
             <div
               onMouseDown={(e) => startResizingSidebar('right', e)}
@@ -3169,7 +3707,11 @@ export const FileManGL: React.FC<FileManGLProps> = ({
 
             <div
               style={{ width: `${rightSidebarWidth}px` }}
-              className="bg-[#0d131f] border-l border-slate-800/90 flex flex-col justify-between shrink-0 overflow-y-auto hidden lg:flex select-none"
+              className={`bg-[#0d131f] border-l border-slate-800/90 flex-col justify-between shrink-0 overflow-y-auto select-none ${
+                mobileInspectorOpen
+                  ? 'absolute inset-y-0 right-0 z-40 flex max-w-[90vw] shadow-2xl lg:static'
+                  : 'hidden lg:flex'
+              }`}
             >
               {/* Top 'Ayrıntılar' Header Bar matching Windows 11 screenshot */}
               <div className="px-4 pt-3.5 pb-2.5 border-b border-slate-800/80 flex items-start justify-between">
@@ -3200,7 +3742,12 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                   </div>
                 </div>
                 <button
-                  onClick={() => onConfigChange?.({ enableDetailsInspector: false })}
+                  onClick={() => {
+                    setMobileInspectorOpen(false);
+                    if (typeof window === 'undefined' || window.innerWidth >= 1024) {
+                      onConfigChange?.({ enableDetailsInspector: false });
+                    }
+                  }}
                   className="w-6 h-6 rounded hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white"
                   title="Kapat"
                 >
@@ -3212,10 +3759,121 @@ export const FileManGL: React.FC<FileManGLProps> = ({
 
               {primarySelectedNode && inspectorNodePerm ? (
                 <div className="p-4 space-y-4 flex-1">
-                  {/* Large Windows 11 Preview Thumbnail Box */}
-                  <div className="w-full h-36 rounded-xl bg-slate-950/80 border border-slate-800/90 flex items-center justify-center p-4 shadow-inner">
-                    {renderCategoryIcon(primarySelectedNode, 'w-20 h-20')}
-                  </div>
+                  {/* Large Windows 11 Preview Thumbnail / Live Media Player Box */}
+                  {primarySelectedNode.category === 'video' && primarySelectedNode.blobUrl ? (
+                    <div className="space-y-2">
+                      <div className="w-full rounded-xl overflow-hidden bg-black border border-slate-800/90 shadow-inner relative">
+                        <video
+                          key={primarySelectedNode.id}
+                          src={primarySelectedNode.blobUrl}
+                          poster={primarySelectedNode.thumbnailUrl}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          className="w-full h-44 object-contain bg-black"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setMediaModalNode(primarySelectedNode)}
+                          className="flex-1 px-2.5 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition"
+                        >
+                          <span
+                            className="material-symbols-outlined"
+                            style={{ fontSize: '15px' }}
+                          >
+                            play_circle
+                          </span>
+                          <span>Medya Oynatıcıda Aç</span>
+                        </button>
+                        <a
+                          href={primarySelectedNode.blobUrl}
+                          download={primarySelectedNode.name}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[11px] font-medium flex items-center gap-1 transition"
+                          title="Dosyayı İndir"
+                        >
+                          <span
+                            className="material-symbols-outlined"
+                            style={{ fontSize: '14px' }}
+                          >
+                            download
+                          </span>
+                        </a>
+                      </div>
+                    </div>
+                  ) : primarySelectedNode.category === 'image' &&
+                    (primarySelectedNode.blobUrl || primarySelectedNode.thumbnailUrl) ? (
+                    <div className="space-y-2">
+                      <div
+                        onClick={() => handleOpenNode(primarySelectedNode)}
+                        className="w-full h-44 rounded-xl bg-slate-950/90 border border-slate-800/90 flex items-center justify-center overflow-hidden shadow-inner cursor-pointer group relative"
+                        title="WebGL Shader Stüdyosunda açmak için tıklayın"
+                      >
+                        <img
+                          src={primarySelectedNode.thumbnailUrl || primarySelectedNode.blobUrl}
+                          alt={primarySelectedNode.name}
+                          className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform"
+                        />
+                        {primarySelectedNode.thumbnailMeta && (
+                          <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/80 border border-emerald-500/40 text-[9px] font-mono font-bold text-[#2FF58E]">
+                            {primarySelectedNode.thumbnailMeta.fromCache
+                              ? 'L1/IDB CACHE HIT'
+                              : 'THUMB CACHED'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setShaderModalNode(primarySelectedNode)}
+                          className="flex-1 px-2.5 py-1.5 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 border border-pink-500/40 text-pink-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-pink-400" />
+                          <span>WebGL Stüdyoda Düzenle</span>
+                        </button>
+                        <button
+                          onClick={() => handleDownloadNode(primarySelectedNode)}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[11px] font-medium flex items-center gap-1 transition"
+                          title="Görseli İndir"
+                        >
+                          <span
+                            className="material-symbols-outlined"
+                            style={{ fontSize: '14px' }}
+                          >
+                            download
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : primarySelectedNode.category === 'audio' && primarySelectedNode.blobUrl ? (
+                    <div className="w-full rounded-xl bg-slate-950/80 border border-slate-800/90 p-3 space-y-2.5 shadow-inner">
+                      <div className="flex items-center justify-center py-2">
+                        {renderCategoryIcon(primarySelectedNode, 'w-14 h-14')}
+                      </div>
+                      <audio
+                        key={primarySelectedNode.id}
+                        src={primarySelectedNode.blobUrl}
+                        controls
+                        className="w-full h-8"
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() =>
+                        primarySelectedNode.category === 'video' ||
+                        primarySelectedNode.category === 'audio'
+                          ? setMediaModalNode(primarySelectedNode)
+                          : undefined
+                      }
+                      className={`w-full h-36 rounded-xl bg-slate-950/80 border border-slate-800/90 flex items-center justify-center p-4 shadow-inner ${
+                        primarySelectedNode.category === 'video' ||
+                        primarySelectedNode.category === 'audio'
+                          ? 'cursor-pointer hover:border-purple-500/50'
+                          : ''
+                      }`}
+                    >
+                      {renderCategoryIcon(primarySelectedNode, 'w-20 h-20')}
+                    </div>
+                  )}
 
                   {/* Filename & Windows 11 Action Button ('Paylaş') */}
                   <div>
@@ -3242,6 +3900,22 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                         </span>
                         <span>Paylaş</span>
                       </button>
+
+                      {primarySelectedNode.type !== 'folder' && (
+                        <button
+                          onClick={() => handleDownloadNode(primarySelectedNode)}
+                          className="px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 text-xs font-medium flex items-center gap-1 transition"
+                          title="Bilgisayara İndir"
+                        >
+                          <span
+                            className="material-symbols-outlined"
+                            style={{ fontSize: '15px' }}
+                          >
+                            download
+                          </span>
+                          <span>İndir</span>
+                        </button>
+                      )}
 
                       <button
                         onClick={() => handleToggleLock(primarySelectedNode)}
@@ -3325,9 +3999,74 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                                   allNodes
                                 )
                               )
-                            : QuotaEngine.formatBytes(primarySelectedNode.size)}
+                            : `${QuotaEngine.formatBytes(
+                                primarySelectedNode.size
+                              )} (${primarySelectedNode.size.toLocaleString('tr-TR')} bayt)`}
                         </div>
                       </div>
+
+                      {primarySelectedNode.imageMeta && (
+                        <div>
+                          <div className="text-slate-400">Çözünürlük & Renk Paleti</div>
+                          <div className="text-slate-100 font-mono flex items-center gap-2 flex-wrap">
+                            <span>
+                              {primarySelectedNode.imageMeta.width} ×{' '}
+                              {primarySelectedNode.imageMeta.height} px
+                            </span>
+                            {primarySelectedNode.durationSec &&
+                            primarySelectedNode.durationSec > 0 ? (
+                              <span className="text-purple-400">
+                                • {Math.floor(primarySelectedNode.durationSec / 60)}:
+                                {Math.floor(primarySelectedNode.durationSec % 60)
+                                  .toString()
+                                  .padStart(2, '0')}{' '}
+                                sn
+                              </span>
+                            ) : null}
+                            <span className="inline-flex items-center gap-1 ml-1">
+                              {primarySelectedNode.imageMeta.palette.map((hex, i) => (
+                                <span
+                                  key={i}
+                                  style={{ backgroundColor: hex }}
+                                  className="w-3 h-3 rounded-sm border border-white/25 inline-block"
+                                  title={`Dominant RGB #${i + 1}: ${hex}`}
+                                />
+                              ))}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {primarySelectedNode.thumbnailMeta && (
+                        <div>
+                          <div className="text-slate-400">Thumbnail Önbellek (L1 + IndexedDB)</div>
+                          <div className="text-cyan-300 font-mono text-[10px]">
+                            {QuotaEngine.formatBytes(
+                              primarySelectedNode.thumbnailMeta.thumbByteSize
+                            )}{' '}
+                            ({primarySelectedNode.thumbnailMeta.format}) •{' '}
+                            {primarySelectedNode.thumbnailMeta.generationMs} ms •{' '}
+                            <span className="text-emerald-400 font-semibold">
+                              {primarySelectedNode.thumbnailMeta.fromCache
+                                ? 'CACHE HIT'
+                                : 'ÖNBELLEĞE YAZILDI'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {primarySelectedNode.type !== 'folder' &&
+                        primarySelectedNode.checksumSha256 && (
+                          <div>
+                            <div className="text-slate-400">SHA-256 Özeti</div>
+                            <div
+                              className="text-emerald-400/90 font-mono text-[10px] truncate"
+                              title={primarySelectedNode.checksumSha256}
+                            >
+                              {primarySelectedNode.checksumSha256}
+                            </div>
+                          </div>
+                        )}
 
                       <div>
                         <div className="text-slate-400">Dosya konumu</div>
@@ -3482,16 +4221,16 @@ export const FileManGL: React.FC<FileManGLProps> = ({
           ROW 5: WINDOWS 11 STATUS BAR (Alt Bilgi Çubuğu & Görünüm Kısayolları)
       ==================================================================== */}
       {config.enableStatusBar && (
-        <div className="px-3.5 py-1 bg-[#080c14] border-t border-slate-800/90 flex items-center justify-between text-[11px] text-slate-400 select-none">
-          <div className="flex items-center gap-3">
-            <span>
+        <div className="px-2.5 sm:px-3.5 py-1 bg-[#080c14] border-t border-slate-800/90 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 select-none">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <span className="truncate">
               <strong className="text-slate-200">{visibleNodes.length}</strong>{' '}
               {dict.explorer.statusListed}
             </span>
             {selectedIds.size > 0 && (
               <>
                 <span>|</span>
-                <span className="text-blue-400 font-medium">
+                <span className="text-blue-400 font-medium truncate">
                   {selectedIds.size} {dict.explorer.statusSelected} (
                   {QuotaEngine.formatBytes(
                     selectedNodes.reduce((acc, n) => acc + n.size, 0)
@@ -3502,8 +4241,21 @@ export const FileManGL: React.FC<FileManGLProps> = ({
             )}
           </div>
 
-          {/* Right side of Windows 11 Status Bar: Free Space + Quick View Mode Icons */}
-          <div className="flex items-center gap-3">
+          {/* Right side of Windows 11 Status Bar: Thumbnail Cache + Free Space + Quick View Mode Icons */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {(() => {
+              const cacheStats = ThumbnailCacheService.getStats();
+              return cacheStats.l1Entries > 0 ? (
+                <span
+                  className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 font-mono text-[10px] text-emerald-300"
+                  title="2 Katmanlı Thumbnail Önbelleği (L1 Bellek LRU + L2 IndexedDB)"
+                >
+                  <span>Thumb Cache: {cacheStats.l1Entries} öğe</span>
+                  <span>•</span>
+                  <span>{QuotaEngine.formatBytes(cacheStats.totalThumbBytes)}</span>
+                </span>
+              ) : null;
+            })()}
             <span className="hidden sm:inline font-mono text-slate-400">
               {dict.explorer.statusFreeSpace}{' '}
               {QuotaEngine.formatBytes(
@@ -3563,11 +4315,11 @@ export const FileManGL: React.FC<FileManGLProps> = ({
       {config.enableContextMenu && contextMenu && (
         <div
           style={{
-            left: Math.min(contextMenu.x, window.innerWidth - 250),
-            top: Math.min(contextMenu.y, window.innerHeight - 360),
+            left: Math.max(8, Math.min(contextMenu.x, window.innerWidth - 250)),
+            top: Math.max(8, Math.min(contextMenu.y, window.innerHeight - 360)),
           }}
           onClick={(e) => e.stopPropagation()}
-          className="fixed z-50 w-60 bg-[#111827]/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl py-1.5 text-xs text-slate-200"
+          className="fixed z-50 w-60 max-w-[calc(100vw-16px)] bg-[#111827]/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl py-1.5 text-xs text-slate-200"
         >
           {contextMenu.node ? (
             <>
@@ -3583,6 +4335,26 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                 </span>
                 <span className="text-[10px] font-mono text-slate-400">Enter</span>
               </button>
+
+              {contextMenu.node.type !== 'folder' && (
+                <button
+                  onClick={() => {
+                    handleDownloadNode(contextMenu.node!);
+                    setContextMenu(null);
+                  }}
+                  className="w-full px-3.5 py-2 hover:bg-cyan-600/20 flex items-center justify-between text-cyan-300"
+                >
+                  <span className="flex items-center gap-2 font-medium">
+                    <span
+                      className="material-symbols-outlined"
+                      style={{ fontSize: '16px' }}
+                    >
+                      download
+                    </span>
+                    <span>Bilgisayara İndir</span>
+                  </span>
+                </button>
+              )}
 
               {contextMenu.node.type === 'folder' && (
                 <button
@@ -3778,11 +4550,11 @@ export const FileManGL: React.FC<FileManGLProps> = ({
       )}
 
       {/* ====================================================================
-          7. FLOASTING TOAST NOTIFICATION
+          7. FLOATING TOAST NOTIFICATION
       ==================================================================== */}
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 z-50 max-w-md rounded-xl p-4 border shadow-2xl backdrop-blur-md flex items-start gap-3 animate-in fade-in slide-in-from-bottom-4 ${
+          className={`fixed bottom-4 sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 z-50 sm:max-w-md rounded-xl p-3.5 sm:p-4 border shadow-2xl backdrop-blur-md flex items-start gap-3 animate-in fade-in slide-in-from-bottom-4 ${
             toast.type === 'error'
               ? 'bg-rose-950/95 border-rose-500/60 text-rose-100'
               : toast.type === 'info'
@@ -3822,8 +4594,8 @@ export const FileManGL: React.FC<FileManGLProps> = ({
           canWrite={currentFolderPerm.allowed.write}
           writeDenialReason={currentFolderPerm.reasons.write}
           onClose={() => setShaderModalNode(null)}
-          onSaveAsNewFile={(newName, desc, bytes) =>
-            handleCreateFile(newName, desc, bytes, 'image')
+          onSaveAsNewFile={(newName, desc, bytes, exportedDataUrl) =>
+            handleCreateFile(newName, desc, bytes, 'image', exportedDataUrl)
           }
         />
       )}
@@ -3910,9 +4682,42 @@ export const FileManGL: React.FC<FileManGLProps> = ({
           }
         />
       )}
+
+      {mediaModalNode && (
+        <MediaPlayerModal
+          node={mediaModalNode}
+          onClose={() => setMediaModalNode(null)}
+        />
+      )}
+
+      {/* LIVE REAL FILE UPLOAD TRANSFER PROGRESS HUD */}
+      {uploadProgress && (
+        <div className="fixed bottom-16 sm:bottom-20 left-3 right-3 sm:left-auto sm:right-6 z-50 sm:w-80 rounded-xl bg-slate-950/95 border border-cyan-500/50 p-3.5 shadow-2xl backdrop-blur-md space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-white truncate max-w-[200px]">
+              {uploadProgress.fileName}
+            </span>
+            <span className="font-mono text-[11px] text-cyan-400 font-semibold">
+              %{uploadProgress.percent} ({uploadProgress.currentIdx}/
+              {uploadProgress.totalFiles})
+            </span>
+          </div>
+          <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 transition-all duration-200"
+              style={{ width: `${uploadProgress.percent}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+            <span className="truncate">{uploadProgress.stage}</span>
+            <span>
+              {QuotaEngine.formatBytes(uploadProgress.bytesTransferred)} /{' '}
+              {QuotaEngine.formatBytes(uploadProgress.totalBytes)}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-
-export const HyperionFileManager = FileManGL;
 

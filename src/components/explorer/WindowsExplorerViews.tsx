@@ -43,6 +43,7 @@ interface WindowsExplorerViewsProps {
   onCancelRename: () => void;
   onSortChange: (field: SortField) => void;
   onDropNodesIntoFolder: (targetFolderId: string, draggedIds: string[]) => void;
+  onExternalFilesDropped?: (files: FileList, targetFolderId?: string | null) => void;
 }
 
 /**
@@ -127,8 +128,67 @@ export function renderCategoryIcon(
     );
   }
 
-  // 3. WINDOWS 11 IMAGE / VIDEO LANDSCAPE THUMBNAIL
+  // 3. WINDOWS 11 IMAGE / VIDEO LANDSCAPE THUMBNAIL (WITH REAL BLOB / CAPTURED FRAME SUPPORT)
   if (node.category === 'image' || node.category === 'video') {
+    if (node.thumbnailUrl || node.blobUrl) {
+      const fmtDuration =
+        node.durationSec && node.durationSec > 0
+          ? `${Math.floor(node.durationSec / 60)}:${Math.floor(node.durationSec % 60)
+              .toString()
+              .padStart(2, '0')}`
+          : null;
+      return (
+        <div
+          className={`relative flex items-center justify-center ${sizeClass} shrink-0 rounded-[5px] overflow-hidden border border-white/20 bg-slate-950 shadow-sm`}
+        >
+          {node.thumbnailUrl || node.category === 'image' ? (
+            <img
+              src={node.thumbnailUrl || node.blobUrl}
+              alt={node.name}
+              loading="lazy"
+              decoding="async"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <video
+              src={`${node.blobUrl}#t=0.1`}
+              preload="metadata"
+              muted
+              playsInline
+              className="w-full h-full object-cover pointer-events-none"
+            />
+          )}
+          {node.category === 'image' && !isSmall && node.thumbnailMeta && (
+            <span
+              style={{ color: '#2FF58E' }}
+              className="absolute bottom-0.5 right-0.5 px-1 py-0.2 rounded bg-black/80 border border-emerald-500/40 text-[7px] font-mono font-bold leading-tight pointer-events-none"
+            >
+              {node.thumbnailMeta.fromCache ? 'CACHE' : 'WEBP'}
+            </span>
+          )}
+          {node.category === 'video' && (
+            <>
+              <span className="absolute inset-0 flex items-center justify-center bg-black/25 pointer-events-none">
+                <span className="w-5 h-5 rounded-full bg-black/70 border border-white/50 flex items-center justify-center shadow">
+                  <svg viewBox="0 0 16 16" className="w-2.5 h-2.5 fill-white ml-0.5">
+                    <polygon points="3,2 14,8 3,14" />
+                  </svg>
+                </span>
+              </span>
+              {!isSmall && fmtDuration && (
+                <span
+                  style={{ color: '#ffffff' }}
+                  className="absolute bottom-0.5 right-0.5 px-1 py-0.2 rounded bg-black/80 text-[8px] font-mono font-bold leading-tight pointer-events-none"
+                >
+                  {fmtDuration}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+      );
+    }
+
     const c1 = node.imageMeta?.palette?.[0] || '#2563eb';
     const c2 = node.imageMeta?.palette?.[1] || '#7c3aed';
     const c3 = node.imageMeta?.palette?.[2] || '#db2777';
@@ -240,6 +300,7 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
   onCancelRename,
   onSortChange,
   onDropNodesIntoFolder,
+  onExternalFilesDropped,
 }) => {
   const { dict } = useI18n();
   const isLight = config.theme === 'light';
@@ -507,6 +568,18 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
         ref={containerRef}
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         onMouseDown={handleViewportMouseDown}
+        onDragOver={(e) => {
+          if (e.dataTransfer?.types?.includes('Files')) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+          }
+        }}
+        onDrop={(e) => {
+          if (e.dataTransfer?.files && e.dataTransfer.files.length > 0 && onExternalFilesDropped) {
+            e.preventDefault();
+            onExternalFilesDropped(e.dataTransfer.files);
+          }
+        }}
         onContextMenu={(e) => {
           const targetEl = e.target as HTMLElement;
           if (!targetEl.closest('[data-node-id]')) {
@@ -516,7 +589,7 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
         }}
         className="relative w-full h-full overflow-auto select-none"
       >
-        <table className="w-full text-left border-collapse text-xs">
+        <table className="w-full min-w-[600px] text-left border-collapse text-xs">
           <thead
             className={`sticky top-0 z-10 border-b font-normal ${
               isLight
@@ -597,7 +670,7 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
                     }
                     e.dataTransfer.effectAllowed = 'move';
                     const payload = JSON.stringify(dragList);
-                    e.dataTransfer.setData('application/hyperion-nodes', payload);
+                    e.dataTransfer.setData('application/filemangl-nodes', payload);
                     e.dataTransfer.setData('text/plain', payload);
                   }}
                   onDragOver={(e) => {
@@ -613,8 +686,16 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
                     if (node.type === 'folder' && config.enableDragAndDrop) {
                       e.preventDefault();
                       e.stopPropagation();
+                      if (
+                        e.dataTransfer?.files &&
+                        e.dataTransfer.files.length > 0 &&
+                        onExternalFilesDropped
+                      ) {
+                        onExternalFilesDropped(e.dataTransfer.files, node.id);
+                        return;
+                      }
                       const raw =
-                        e.dataTransfer.getData('application/hyperion-nodes') ||
+                        e.dataTransfer.getData('application/filemangl-nodes') ||
                         e.dataTransfer.getData('text/plain');
                       if (raw) {
                         try {
@@ -627,6 +708,15 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (
+                      isSelected &&
+                      selectedIds.size === 1 &&
+                      typeof window !== 'undefined' &&
+                      window.matchMedia?.('(pointer: coarse)')?.matches
+                    ) {
+                      onOpenNode(node);
+                      return;
+                    }
                     onSelectNode(node.id, e.ctrlKey || e.metaKey, e.shiftKey);
                   }}
                   onDoubleClick={(e) => {
@@ -805,7 +895,7 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
           }
           e.dataTransfer.effectAllowed = 'move';
           const payload = JSON.stringify(dragList);
-          e.dataTransfer.setData('application/hyperion-nodes', payload);
+          e.dataTransfer.setData('application/filemangl-nodes', payload);
           e.dataTransfer.setData('text/plain', payload);
         }}
         onDragOver={(e) => {
@@ -821,8 +911,16 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
           if (node.type === 'folder' && config.enableDragAndDrop) {
             e.preventDefault();
             e.stopPropagation();
+            if (
+              e.dataTransfer?.files &&
+              e.dataTransfer.files.length > 0 &&
+              onExternalFilesDropped
+            ) {
+              onExternalFilesDropped(e.dataTransfer.files, node.id);
+              return;
+            }
             const raw =
-              e.dataTransfer.getData('application/hyperion-nodes') ||
+              e.dataTransfer.getData('application/filemangl-nodes') ||
               e.dataTransfer.getData('text/plain');
             if (raw) {
               try {
@@ -835,6 +933,15 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
         }}
         onClick={(e) => {
           e.stopPropagation();
+          if (
+            isSelected &&
+            selectedIds.size === 1 &&
+            typeof window !== 'undefined' &&
+            window.matchMedia?.('(pointer: coarse)')?.matches
+          ) {
+            onOpenNode(node);
+            return;
+          }
           onSelectNode(node.id, e.ctrlKey || e.metaKey, e.shiftKey);
         }}
         onDoubleClick={(e) => {
@@ -912,9 +1019,16 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
       const lastWeekItems: FileNode[] = [];
       const olderItems: FileNode[] = [];
 
+      const nowMs = Date.now();
       nodes.forEach((n, idx) => {
+        const updatedMs = new Date(n.updatedAt).getTime();
+        const isRecentToday =
+          Boolean(n.isUserUploaded) ||
+          Boolean(n.blobUrl) ||
+          (!Number.isNaN(updatedMs) && nowMs - updatedMs < 20 * 3600 * 1000);
+
         const dayMod = idx % 10;
-        if (n.type === 'folder' || dayMod < 3) {
+        if (n.type === 'folder' || isRecentToday || dayMod < 3) {
           todayItems.push(n);
         } else if (dayMod < 5) {
           yesterdayItems.push(n);
@@ -925,11 +1039,22 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
         }
       });
 
+      // Place user-uploaded files right after folders at the top of "Bugün" ("Today")
+      todayItems.sort((a, b) => {
+        if (a.type === 'folder' && b.type !== 'folder') return -1;
+        if (a.type !== 'folder' && b.type === 'folder') return 1;
+        if (a.isUserUploaded && !b.isUserUploaded) return -1;
+        if (!a.isUserUploaded && b.isUserUploaded) return 1;
+        return 0;
+      });
+
       const labels =
         config.locale === 'en'
           ? ['Today', 'Yesterday', 'Last week', 'Earlier this month']
           : config.locale === 'de'
           ? ['Heute', 'Gestern', 'Letzte Woche', 'Früher in diesem Monat']
+          : config.locale === 'ru'
+          ? ['Сегодня', 'Вчера', 'На прошлой неделе', 'Ранее в этом месяце']
           : ['Bugün', 'Dün', 'Geçen hafta', 'Bu ayın başlarında'];
 
       if (todayItems.length) groups.push({ id: 'g_today', title: labels[0], items: todayItems });
@@ -957,6 +1082,18 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
         ref={containerRef}
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         onMouseDown={handleViewportMouseDown}
+        onDragOver={(e) => {
+          if (e.dataTransfer?.types?.includes('Files')) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+          }
+        }}
+        onDrop={(e) => {
+          if (e.dataTransfer?.files && e.dataTransfer.files.length > 0 && onExternalFilesDropped) {
+            e.preventDefault();
+            onExternalFilesDropped(e.dataTransfer.files);
+          }
+        }}
         onContextMenu={(e) => {
           const targetEl = e.target as HTMLElement;
           if (!targetEl.closest('[data-node-id]')) {

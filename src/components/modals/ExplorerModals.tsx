@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ConflictItem,
   ConflictResolutionStrategy,
@@ -18,6 +18,11 @@ import {
   AlertTriangle,
   FileSignature,
   Lock,
+  Play,
+  Download,
+  Film,
+  Volume2,
+  FileText,
 } from 'lucide-react';
 
 function resolveCodeLanguage(node: FileNode): SupportedCodeLang {
@@ -481,7 +486,7 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
   );
 
   const token = node.shareLink?.token || `sh_${node.id.slice(-6)}_${Date.now().toString(36)}`;
-  const url = `https://cdn.hyperion-fm.dev/s/${token}`;
+  const url = `https://cdn.filemangl.dev/s/${token}`;
 
   const handleSave = () => {
     onSaveShareConfig(node.id, {
@@ -676,6 +681,220 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
           >
             İşlemi İptal Et
           </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// 5. BUILT-IN REAL MEDIA & DOCUMENT PLAYER MODAL (MP4 / WEBM / AUDIO / PDF)
+// ============================================================================
+interface MediaPlayerModalProps {
+  node: FileNode;
+  onClose: () => void;
+}
+
+export const MediaPlayerModal: React.FC<MediaPlayerModalProps> = ({ node, onClose }) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [playbackRate, setPlaybackRate] = useState<number>(1);
+  const [videoDimensions, setVideoDimensions] = useState<{ w: number; h: number }>({
+    w: node.imageMeta?.width || 1920,
+    h: node.imageMeta?.height || 1080,
+  });
+  const [duration, setDuration] = useState<number>(node.durationSec || 0);
+
+  // Synthetic 60FPS animated stream fallback ONLY when opening a built-in demo video that has no real blobUrl
+  useEffect(() => {
+    if (node.blobUrl || node.category !== 'video') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId = 0;
+    let t = 0;
+    const renderDemoStream = () => {
+      t += 0.025;
+      const w = canvas.width;
+      const h = canvas.height;
+      const grad = ctx.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, '#040b18');
+      grad.addColorStop(0.5, '#092247');
+      grad.addColorStop(1, '#051526');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.strokeStyle = i % 2 === 0 ? 'rgba(47, 245, 142, 0.35)' : 'rgba(0, 200, 255, 0.35)';
+        ctx.lineWidth = 2.5;
+        for (let x = 0; x <= w; x += 12) {
+          const y =
+            h * 0.5 +
+            Math.sin(x * 0.012 + t * (1.2 + i * 0.3) + i) * (40 + i * 16) +
+            Math.cos(x * 0.006 - t) * 20;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.font = 'bold 15px Inter, sans-serif';
+      ctx.fillText(`FileManGL 60FPS Stream Preview — ${node.name}`, 24, 38);
+      ctx.font = '12px JetBrains Mono, monospace';
+      ctx.fillStyle = '#2FF58E';
+      ctx.fillText(
+        `TIME: ${t.toFixed(2)}s • CODEC: H.264 / WebGL2 • SIZE: ${QuotaEngine.formatBytes(node.size)}`,
+        24,
+        62
+      );
+
+      animId = requestAnimationFrame(renderDemoStream);
+    };
+    animId = requestAnimationFrame(renderDemoStream);
+    return () => cancelAnimationFrame(animId);
+  }, [node]);
+
+  const handleSpeedChange = (rate: number) => {
+    setPlaybackRate(rate);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = rate;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+      <div className="bg-[#080d18] border border-slate-700/90 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col">
+        {/* Top Media Header */}
+        <div className="px-5 py-3.5 bg-[#0c1220] border-b border-slate-800 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-[#00C8FF]">
+              {node.category === 'video' ? (
+                <Film className="w-5 h-5" />
+              ) : node.category === 'audio' ? (
+                <Volume2 className="w-5 h-5" />
+              ) : (
+                <FileText className="w-5 h-5" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white truncate">{node.name}</h3>
+                {node.blobUrl && (
+                  <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded-full bg-emerald-500/20 text-[#2FF58E] border border-emerald-500/40">
+                    GERÇEK DOSYA AKIŞI (BLOB STREAM)
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 font-mono mt-0.5">
+                {node.mimeType} • {QuotaEngine.formatBytes(node.size)}
+                {node.category === 'video' &&
+                  ` • ${videoDimensions.w}×${videoDimensions.h}px`}
+                {duration > 0 && ` • ${duration.toFixed(1)} sn`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {node.category === 'video' && node.blobUrl && (
+              <div className="hidden sm:flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg p-0.5 text-[11px] font-mono">
+                {[0.5, 1, 1.25, 1.5, 2].map((rate) => (
+                  <button
+                    key={rate}
+                    onClick={() => handleSpeedChange(rate)}
+                    className={`px-2 py-0.5 rounded transition ${
+                      playbackRate === rate
+                        ? 'bg-blue-600 text-white font-bold'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {rate}x
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {node.blobUrl && (
+              <a
+                href={node.blobUrl}
+                download={node.name}
+                style={{ color: '#ffffff' }}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white flex items-center gap-1.5 transition"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>İndir</span>
+              </a>
+            )}
+
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Media Viewport */}
+        <div className="bg-black flex items-center justify-center relative min-h-[380px] max-h-[72vh] overflow-hidden">
+          {node.category === 'video' && node.blobUrl ? (
+            <video
+              ref={videoRef}
+              src={node.blobUrl}
+              poster={node.thumbnailUrl}
+              controls
+              autoPlay
+              playsInline
+              onLoadedMetadata={(e) => {
+                const v = e.currentTarget;
+                if (v.videoWidth && v.videoHeight) {
+                  setVideoDimensions({ w: v.videoWidth, h: v.videoHeight });
+                }
+                if (v.duration && Number.isFinite(v.duration)) {
+                  setDuration(v.duration);
+                }
+              }}
+              className="w-full max-h-[70vh] object-contain bg-black"
+            />
+          ) : node.category === 'video' ? (
+            <canvas
+              ref={canvasRef}
+              width={860}
+              height={460}
+              className="w-full max-h-[65vh] object-contain"
+            />
+          ) : node.category === 'audio' && node.blobUrl ? (
+            <div className="p-10 w-full flex flex-col items-center gap-5">
+              <div className="w-20 h-20 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-[#00C8FF]">
+                <Volume2 className="w-10 h-10" />
+              </div>
+              <audio src={node.blobUrl} controls autoPlay className="w-full max-w-md" />
+            </div>
+          ) : node.blobUrl ? (
+            <iframe
+              src={node.blobUrl}
+              title={node.name}
+              className="w-full h-[68vh] bg-white border-0"
+            />
+          ) : (
+            <div className="p-8 text-center text-slate-400 text-xs flex flex-col items-center gap-2">
+              <Play className="w-8 h-8 text-cyan-400" />
+              <span>Önizleme hazır.</span>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Metadata Bar */}
+        <div className="px-5 py-3 bg-[#0c1220] border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-400">
+          <span>
+            SHA-256: <strong className="text-slate-200">{node.checksumSha256.slice(0, 32)}...</strong>
+          </span>
+          <span>
+            Sahip: {node.security.ownerName} • POSIX: {node.security.posix.octal}
+          </span>
         </div>
       </div>
     </div>

@@ -64,8 +64,18 @@
   background-color: #f8fafc !important;
 }
 
-.theme-light .bg-\[\#070b12\]\/85 {
+.theme-light .bg-\[\#070b12\]\/85,
+.theme-light .bg-\[\#070b12\]\/80 {
   background-color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.theme-light .bg-\[\#0D111A\],
+.theme-light .bg-white\/\[0\.05\] {
+  background-color: #f1f5f9 !important;
+}
+
+.theme-light .border-white\/\[0\.08\] {
+  border-color: #cbd5e1 !important;
 }
 
 .theme-light .bg-\[\#0b101b\],
