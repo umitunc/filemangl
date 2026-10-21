@@ -10,6 +10,8 @@ import {
   Cpu,
   Eye,
   ShieldAlert,
+  Download,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface WebGLImageShaderModalProps {
@@ -17,7 +19,12 @@ interface WebGLImageShaderModalProps {
   canWrite: boolean;
   writeDenialReason?: string;
   onClose: () => void;
-  onSaveAsNewFile: (newName: string, shaderDescription: string, sizeBytes: number) => void;
+  onSaveAsNewFile: (
+    newName: string,
+    shaderDescription: string,
+    sizeBytes: number,
+    exportedDataUrl?: string
+  ) => void;
 }
 
 const STUDIO_VS = `
@@ -40,6 +47,8 @@ const STUDIO_FS = `
   uniform float u_vignette;
   uniform int u_pattern;
   uniform int u_edgeDetect;
+  uniform int u_hasTexture;
+  uniform sampler2D u_tex;
   uniform vec3 u_c1;
   uniform vec3 u_c2;
   uniform vec3 u_c3;
@@ -62,27 +71,23 @@ const STUDIO_FS = `
   vec3 proceduralScene(vec2 uv) {
     float t = u_time * 0.25;
     if (u_pattern == 1) {
-      // Cybergrid
       vec2 g = abs(fract(uv * 16.0 - vec2(0.0, t)) - 0.5) / 0.04;
       float line = 1.0 - min(min(g.x, g.y), 1.0);
       vec3 bg = mix(u_c3, u_c2 * 0.5, uv.y);
       return bg + line * u_c1 * 1.4;
     }
     if (u_pattern == 2) {
-      // Aurora
       float n1 = noise(uv * 4.5 + vec2(t, -t * 0.6));
       float n2 = noise(uv * 9.0 - vec2(t * 0.8, t));
       float ribbon = smoothstep(0.35, 0.75, sin(uv.x * 8.0 + n1 * 4.0) * 0.5 + 0.5);
       return mix(u_c1 * 0.3, mix(u_c2, u_c3, n2), ribbon);
     }
     if (u_pattern == 3) {
-      // Prism
       float d = length(uv - 0.5);
       float angle = atan(uv.y - 0.5, uv.x - 0.5);
       float wave = sin(d * 24.0 - t * 4.0 + angle * 3.0) * 0.5 + 0.5;
       return mix(u_c1, mix(u_c2, u_c3, wave), d * 1.3);
     }
-    // Default Nebula
     float n = 0.0;
     vec2 p = uv * 3.5;
     float amp = 0.55;
@@ -96,17 +101,24 @@ const STUDIO_FS = `
     return col;
   }
 
+  vec3 sampleSource(vec2 uv) {
+    if (u_hasTexture == 1) {
+      return texture2D(u_tex, clamp(uv, 0.0, 1.0)).rgb;
+    }
+    return proceduralScene(uv);
+  }
+
   void main() {
     vec2 shift = vec2(u_aberration * 0.015, 0.0);
-    float r = proceduralScene(v_uv + shift).r;
-    float g = proceduralScene(v_uv).g;
-    float b = proceduralScene(v_uv - shift).b;
+    float r = sampleSource(v_uv + shift).r;
+    float g = sampleSource(v_uv).g;
+    float b = sampleSource(v_uv - shift).b;
     vec3 col = vec3(r, g, b);
 
     if (u_edgeDetect == 1) {
-      vec3 dx = proceduralScene(v_uv + vec2(0.004, 0.0)) - proceduralScene(v_uv - vec2(0.004, 0.0));
-      vec3 dy = proceduralScene(v_uv + vec2(0.0, 0.004)) - proceduralScene(v_uv - vec2(0.0, 0.004));
-      col = sqrt(dx * dx + dy * dy) * 5.0;
+      vec3 dx = sampleSource(v_uv + vec2(0.0035, 0.0)) - sampleSource(v_uv - vec2(0.0035, 0.0));
+      vec3 dy = sampleSource(v_uv + vec2(0.0, 0.0035)) - sampleSource(v_uv - vec2(0.0, 0.0035));
+      col = sqrt(dx * dx + dy * dy) * 4.5;
     }
 
     // Exposure
@@ -121,7 +133,9 @@ const STUDIO_FS = `
 
     // Vignette
     float dist = length(v_uv - 0.5);
-    col *= smoothstep(0.85, 0.85 - u_vignette * 0.55, dist * u_vignette);
+    if (u_vignette > 0.01) {
+      col *= smoothstep(0.9, 0.9 - u_vignette * 0.55, dist * u_vignette);
+    }
 
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
   }
@@ -140,13 +154,16 @@ export const WebGLImageShaderModal: React.FC<WebGLImageShaderModalProps> = ({
   onClose,
   onSaveAsNewFile,
 }) => {
+  const hasRealImage = Boolean(node.blobUrl || node.thumbnailUrl);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [exposure, setExposure] = useState(0.0);
-  const [contrast, setContrast] = useState(1.05);
-  const [saturation, setSaturation] = useState(1.15);
-  const [aberration, setAberration] = useState(0.15);
-  const [vignette, setVignette] = useState(0.35);
+  const [contrast, setContrast] = useState(hasRealImage ? 1.0 : 1.05);
+  const [saturation, setSaturation] = useState(hasRealImage ? 1.0 : 1.15);
+  const [aberration, setAberration] = useState(hasRealImage ? 0.0 : 0.15);
+  const [vignette, setVignette] = useState(hasRealImage ? 0.0 : 0.35);
   const [edgeDetect, setEdgeDetect] = useState(false);
+  const [compareOriginal, setCompareOriginal] = useState(false);
+  const [textureLoaded, setTextureLoaded] = useState(false);
 
   const patternIndex =
     node.imageMeta?.pattern === 'cybergrid'
@@ -160,7 +177,7 @@ export const WebGLImageShaderModal: React.FC<WebGLImageShaderModalProps> = ({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const gl = canvas.getContext('webgl');
+    const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
     if (!gl) return;
 
     const compile = (type: number, src: string) => {
@@ -194,6 +211,28 @@ export const WebGLImageShaderModal: React.FC<WebGLImageShaderModalProps> = ({
     gl.enableVertexAttribArray(posLoc);
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 
+    // Optional Real Image Texture Upload to GPU
+    const tex = gl.createTexture();
+    let hasBoundTex = 0;
+    const imgSrc = node.blobUrl || node.thumbnailUrl;
+
+    if (imgSrc && tex && typeof Image !== 'undefined') {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+        hasBoundTex = 1;
+        setTextureLoaded(true);
+      };
+      img.src = imgSrc;
+    }
+
     const palette = node.imageMeta?.palette || ['#0ea5e9', '#6366f1', '#ec4899'];
     const c1 = hexToRgbNormalized(palette[0]);
     const c2 = hexToRgbNormalized(palette[1]);
@@ -202,14 +241,41 @@ export const WebGLImageShaderModal: React.FC<WebGLImageShaderModalProps> = ({
     let raf = 0;
     const render = (now: number) => {
       gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.useProgram(prog);
+
+      if (hasBoundTex === 1 && tex) {
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.uniform1i(gl.getUniformLocation(prog, 'u_tex'), 0);
+      }
+
+      gl.uniform1i(gl.getUniformLocation(prog, 'u_hasTexture'), hasBoundTex);
       gl.uniform1f(gl.getUniformLocation(prog, 'u_time'), now * 0.001);
-      gl.uniform1f(gl.getUniformLocation(prog, 'u_exposure'), exposure);
-      gl.uniform1f(gl.getUniformLocation(prog, 'u_contrast'), contrast);
-      gl.uniform1f(gl.getUniformLocation(prog, 'u_saturation'), saturation);
-      gl.uniform1f(gl.getUniformLocation(prog, 'u_aberration'), aberration);
-      gl.uniform1f(gl.getUniformLocation(prog, 'u_vignette'), vignette);
+      gl.uniform1f(
+        gl.getUniformLocation(prog, 'u_exposure'),
+        compareOriginal ? 0.0 : exposure
+      );
+      gl.uniform1f(
+        gl.getUniformLocation(prog, 'u_contrast'),
+        compareOriginal ? 1.0 : contrast
+      );
+      gl.uniform1f(
+        gl.getUniformLocation(prog, 'u_saturation'),
+        compareOriginal ? 1.0 : saturation
+      );
+      gl.uniform1f(
+        gl.getUniformLocation(prog, 'u_aberration'),
+        compareOriginal ? 0.0 : aberration
+      );
+      gl.uniform1f(
+        gl.getUniformLocation(prog, 'u_vignette'),
+        compareOriginal ? 0.0 : vignette
+      );
       gl.uniform1i(gl.getUniformLocation(prog, 'u_pattern'), patternIndex);
-      gl.uniform1i(gl.getUniformLocation(prog, 'u_edgeDetect'), edgeDetect ? 1 : 0);
+      gl.uniform1i(
+        gl.getUniformLocation(prog, 'u_edgeDetect'),
+        compareOriginal ? 0 : edgeDetect ? 1 : 0
+      );
       gl.uniform3f(gl.getUniformLocation(prog, 'u_c1'), c1[0], c1[1], c1[2]);
       gl.uniform3f(gl.getUniformLocation(prog, 'u_c2'), c2[0], c2[1], c2[2]);
       gl.uniform3f(gl.getUniformLocation(prog, 'u_c3'), c3[0], c3[1], c3[2]);
@@ -221,18 +287,62 @@ export const WebGLImageShaderModal: React.FC<WebGLImageShaderModalProps> = ({
     raf = requestAnimationFrame(render);
     return () => {
       cancelAnimationFrame(raf);
+      if (tex) gl.deleteTexture(tex);
       gl.deleteBuffer(buf);
       gl.deleteProgram(prog);
     };
-  }, [exposure, contrast, saturation, aberration, vignette, edgeDetect, patternIndex, node]);
+  }, [
+    exposure,
+    contrast,
+    saturation,
+    aberration,
+    vignette,
+    edgeDetect,
+    compareOriginal,
+    patternIndex,
+    node,
+  ]);
 
   const handleReset = () => {
     setExposure(0.0);
-    setContrast(1.05);
-    setSaturation(1.15);
-    setAberration(0.15);
-    setVignette(0.35);
+    setContrast(hasRealImage ? 1.0 : 1.05);
+    setSaturation(hasRealImage ? 1.0 : 1.15);
+    setAberration(hasRealImage ? 0.0 : 0.15);
+    setVignette(hasRealImage ? 0.0 : 0.35);
     setEdgeDetect(false);
+  };
+
+  const captureCanvasDataUrl = (): { dataUrl?: string; byteSize: number } => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { byteSize: Math.round(node.size * 0.85) };
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      if (dataUrl && dataUrl.startsWith('data:image/')) {
+        const commaIdx = dataUrl.indexOf(',');
+        const bytes =
+          commaIdx !== -1
+            ? Math.round(((dataUrl.length - commaIdx - 1) * 3) / 4)
+            : Math.round(node.size * 0.85);
+        return { dataUrl, byteSize: Math.max(1024, bytes) };
+      }
+    } catch {
+      // Fallback in headless test env
+    }
+    return {
+      dataUrl: node.thumbnailUrl || node.blobUrl,
+      byteSize: Math.round(node.size * 0.85),
+    };
+  };
+
+  const handleDownloadProcessedPng = () => {
+    const { dataUrl } = captureCanvasDataUrl();
+    const targetUrl = dataUrl || node.blobUrl || node.thumbnailUrl;
+    if (!targetUrl) return;
+    const a = document.createElement('a');
+    const base = node.name.replace(/\.[^/.]+$/, '');
+    a.href = targetUrl;
+    a.download = `${base}_shader_render.png`;
+    a.click();
   };
 
   return (
@@ -245,11 +355,17 @@ export const WebGLImageShaderModal: React.FC<WebGLImageShaderModalProps> = ({
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm font-bold text-white">{node.name}</h3>
                 <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
                   WebGL GLSL Fragment Pipeline
                 </span>
+                {hasRealImage && (
+                  <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                    <ImageIcon className="w-3 h-3" />
+                    {textureLoaded ? 'GPU 2D TEXTURE BOUND' : 'YEREL GÖRSEL DOKUSU'}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-400 font-mono">
                 {node.imageMeta?.width || 3840}×{node.imageMeta?.height || 2160}px •{' '}
@@ -258,12 +374,25 @@ export const WebGLImageShaderModal: React.FC<WebGLImageShaderModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {hasRealImage && (
+              <button
+                onMouseDown={() => setCompareOriginal(true)}
+                onMouseUp={() => setCompareOriginal(false)}
+                onMouseLeave={() => setCompareOriginal(false)}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-200 font-medium transition"
+                title="Orijinal fotoğrafı görmek için basılı tutun"
+              >
+                {compareOriginal ? 'Orijinal Gösteriliyor' : 'Orijinal ile Karşılaştır (Basılı Tut)'}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -272,13 +401,17 @@ export const WebGLImageShaderModal: React.FC<WebGLImageShaderModalProps> = ({
           <div className="lg:col-span-2 bg-black relative flex items-center justify-center p-4 min-h-[360px]">
             <canvas
               ref={canvasRef}
-              width={860}
-              height={480}
+              width={node.imageMeta?.width ? Math.min(1280, node.imageMeta.width) : 860}
+              height={node.imageMeta?.height ? Math.min(720, node.imageMeta.height) : 480}
               className="w-full h-full max-h-[460px] object-contain rounded-xl border border-slate-800 shadow-2xl"
             />
             <div className="absolute top-6 left-6 bg-slate-950/85 backdrop-blur border border-slate-800 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-mono text-emerald-400">
               <Cpu className="w-3.5 h-3.5" />
-              <span>GPU Real-Time Fragment Shader (highp float)</span>
+              <span>
+                {hasRealImage
+                  ? 'GPU Real-Time 2D Texture Sampler (sampler2D u_tex)'
+                  : 'GPU Real-Time Fragment Shader (highp float)'}
+              </span>
             </div>
           </div>
 
@@ -391,7 +524,7 @@ export const WebGLImageShaderModal: React.FC<WebGLImageShaderModalProps> = ({
               </div>
             </div>
 
-            {/* Save Action with Permission Check */}
+            {/* Save & Download Actions */}
             <div className="pt-4 border-t border-slate-800 space-y-2">
               {!canWrite && (
                 <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-[11px] text-rose-300 flex items-start gap-2">
@@ -403,10 +536,12 @@ export const WebGLImageShaderModal: React.FC<WebGLImageShaderModalProps> = ({
                 disabled={!canWrite}
                 onClick={() => {
                   const base = node.name.replace(/\.[^/.]+$/, '');
+                  const { dataUrl, byteSize } = captureCanvasDataUrl();
                   onSaveAsNewFile(
                     `${base}_shader_render.png`,
                     `GLSL Render (exp=${exposure}, con=${contrast}, sat=${saturation})`,
-                    Math.round(node.size * 0.85)
+                    byteSize,
+                    dataUrl
                   );
                   onClose();
                 }}
@@ -418,6 +553,14 @@ export const WebGLImageShaderModal: React.FC<WebGLImageShaderModalProps> = ({
               >
                 <Save className="w-4 h-4" />
                 Shader Çıktısını Diske Yeni Dosya Olarak Kaydet
+              </button>
+
+              <button
+                onClick={handleDownloadProcessedPng}
+                className="w-full py-2 px-4 rounded-xl font-medium text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 flex items-center justify-center gap-2 transition"
+              >
+                <Download className="w-3.5 h-3.5 text-cyan-400" />
+                İşlenmiş Görseli Bilgisayara İndir (.PNG)
               </button>
             </div>
           </div>

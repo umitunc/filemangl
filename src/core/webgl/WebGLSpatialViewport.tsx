@@ -671,7 +671,7 @@ export const WebGLSpatialViewport: React.FC<WebGLSpatialViewportProps> = ({
                     }
                     e.dataTransfer.effectAllowed = 'move';
                     e.dataTransfer.setData(
-                      'application/hyperion-nodes',
+                      'application/filemangl-nodes',
                       JSON.stringify(payload)
                     );
                     e.dataTransfer.setData('text/plain', JSON.stringify(payload));
@@ -694,7 +694,7 @@ export const WebGLSpatialViewport: React.FC<WebGLSpatialViewportProps> = ({
                     setDragOverFolderId(null);
                     try {
                       const raw =
-                        e.dataTransfer.getData('application/hyperion-nodes') ||
+                        e.dataTransfer.getData('application/filemangl-nodes') ||
                         e.dataTransfer.getData('text/plain');
                       if (!raw) return;
                       const ids: string[] = JSON.parse(raw);
