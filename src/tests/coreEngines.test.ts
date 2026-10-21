@@ -10,8 +10,9 @@ import {
   VfsLocalStorageDriver,
   VfsMemoryDriver,
 } from '../core/drivers/FileSystemDrivers';
+import { ThumbnailCacheService } from '../core/services/ThumbnailCacheService';
 
-describe('HyperionFM Core Engines (PermissionEngine, QuotaEngine, VFS Drivers & Stress Generator)', () => {
+describe('FileManGL Core Engines (PermissionEngine, QuotaEngine, VFS Drivers & Stress Generator)', () => {
   describe('PermissionEngine (Hybrid NTFS ACL + POSIX rwx)', () => {
     it('correctly parses and builds POSIX octal and symbolic strings', () => {
       const p755 = PermissionEngine.buildPosixFromOctal('0755');
@@ -172,7 +173,7 @@ describe('HyperionFM Core Engines (PermissionEngine, QuotaEngine, VFS Drivers & 
       const initial = await driver.initialize();
       expect(initial.length).toBeGreaterThan(20);
 
-      const rawSaved = localStorage.getItem('hyperion_fm_vfs_nodes_v27_win11');
+      const rawSaved = localStorage.getItem('filemangl_vfs_nodes_v28_win11');
       expect(rawSaved).toBeTruthy();
 
       // Adding 5,000 stress nodes keeps them in memory without throwing QuotaExceededError
@@ -184,6 +185,35 @@ describe('HyperionFM Core Engines (PermissionEngine, QuotaEngine, VFS Drivers & 
       const memDriver = new VfsMemoryDriver();
       const memNodes = await memDriver.initialize();
       expect(memNodes.length).toBeGreaterThan(20);
+    });
+
+    it('caches generated image thumbnails in 2-Tier ThumbnailCacheService (L1 LRU + IndexedDB) with instant cache hits', async () => {
+      await ThumbnailCacheService.clearAll();
+      const fakePng = new File([new Uint8Array(8192)], 'hero_banner.png', {
+        type: 'image/png',
+      });
+      const sha = 'a1b2c3d4e5f600112233445566778899aabbccddeeff00112233445566778899';
+
+      // 1st pass: cache miss -> generates & stores thumbnail
+      const firstPass = await ThumbnailCacheService.generateAndCacheImageThumbnail(
+        fakePng,
+        sha,
+        'blob:local/hero_banner.png'
+      );
+      expect(firstPass.fromCache).toBe(false);
+      expect(firstPass.palette.length).toBe(3);
+
+      // 2nd pass: L1 LRU cache hit -> returns cached entry immediately
+      const secondPass = await ThumbnailCacheService.generateAndCacheImageThumbnail(
+        fakePng,
+        sha,
+        'blob:local/hero_banner.png'
+      );
+      expect(secondPass.fromCache).toBe(true);
+
+      const stats = ThumbnailCacheService.getStats();
+      expect(stats.l1Entries).toBeGreaterThanOrEqual(1);
+      expect(stats.hitCount).toBeGreaterThanOrEqual(1);
     });
   });
 });

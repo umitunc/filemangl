@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { HyperionFileManager } from '../components/explorer/HyperionFileManager';
+import { FileManGL } from '../components/explorer/FileManGL';
 import { I18nProvider } from '../core/i18n/I18nProvider';
 import { DEFAULT_FILE_MANAGER_CONFIG } from '../core/config/defaultConfig';
 import { IFileManagerConfig } from '../core/contracts/types';
@@ -19,7 +19,7 @@ function renderExplorer(initialPatch?: Partial<IFileManagerConfig>) {
         locale={cfg.locale}
         onLocaleChange={(locale) => setCfg((p) => ({ ...p, locale }))}
       >
-        <HyperionFileManager
+        <FileManGL
           config={cfg}
           onConfigChange={(patch) => setCfg((prev) => ({ ...prev, ...patch }))}
         />
@@ -275,6 +275,29 @@ describe('Windows 11 File Explorer UX & UI Automation Suite', () => {
 
     // Toast notification & status bar should confirm Drag & Drop move
     expect((await screen.findAllByText('Sürükle & Bırak Taşıma')).length).toBeGreaterThan(0);
+
+    // Also verify partial Drag & Drop when selection includes both a movable item and a locked item ('03_Security_Vault')
+    const movableText = (await screen.findAllByText(/FileManGLConfig/i))[0];
+    const movableCard = movableText.closest('[data-node-id]') as HTMLElement;
+    const lockedCard = Array.from(viewport.querySelectorAll('[data-node-id]')).find((el) =>
+      el.textContent?.includes('03_Security_Vault')
+    ) as HTMLElement;
+    expect(movableCard).toBeTruthy();
+    expect(lockedCard).toBeTruthy();
+
+    const mixedPayload = JSON.stringify([
+      movableCard.getAttribute('data-node-id'),
+      lockedCard.getAttribute('data-node-id'),
+    ]);
+    const mixedTransfer = {
+      effectAllowed: 'move',
+      dropEffect: 'move',
+      setData: () => {},
+      getData: () => mixedPayload,
+    };
+
+    fireEvent.drop(targetFolderCard, { dataTransfer: mixedTransfer });
+    expect((await screen.findAllByText('Taşınabilir Öğeler Aktarıldı')).length).toBeGreaterThan(0);
   });
 
   it('opens the Security ACL & POSIX Permissions Modal and inspects permissions', async () => {

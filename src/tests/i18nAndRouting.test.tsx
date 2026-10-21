@@ -86,7 +86,7 @@ describe('JSON Localization (i18n: TR / EN / DE / RU) & URL Routing (/demo, /doc
     expect(DOC_MODULE_REGISTRY.length).toBe(8);
 
     // Verify SyntaxHighlighterEngine tokenizes keywords, types, strings, variables, numbers, and comments
-    const sample = `// SOLID Comment\nconst quota: number = 500;\n$this->resolveSafePath('app/hyperion');`;
+    const sample = `// SOLID Comment\nconst quota: number = 500;\n$this->resolveSafePath('app/filemangl');`;
     const tokenizedLines = SyntaxHighlighterEngine.tokenizeCode(sample, 'php');
     expect(tokenizedLines.length).toBe(3);
 

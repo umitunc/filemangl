@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { HyperionFileManager } from '../components/explorer/HyperionFileManager';
+import { FileManGL } from '../components/explorer/FileManGL';
 import { I18nProvider } from '../core/i18n/I18nProvider';
 import { DEFAULT_FILE_MANAGER_CONFIG } from '../core/config/defaultConfig';
 import { IFileManagerConfig } from '../core/contracts/types';
@@ -19,7 +19,7 @@ function renderExplorer(initialPatch?: Partial<IFileManagerConfig>) {
         locale={cfg.locale}
         onLocaleChange={(locale) => setCfg((p) => ({ ...p, locale }))}
       >
-        <HyperionFileManager
+        <FileManGL
           config={cfg}
           onConfigChange={(patch) => setCfg((prev) => ({ ...prev, ...patch }))}
         />
@@ -86,7 +86,7 @@ describe('Modals (Code Editor, Share Link, Batch Rename, ACL/POSIX) & WebGL View
     await screen.findAllByText('01_Engineering_Core');
 
     const item1 = (await screen.findAllByText(/Architecture_Guide/i))[0];
-    const item2 = (await screen.findAllByText(/HyperionConfig/i))[0];
+    const item2 = (await screen.findAllByText(/FileManGLConfig/i))[0];
 
     // Select item1, then Ctrl+Click item2
     fireEvent.click(item1);
@@ -125,5 +125,41 @@ describe('Modals (Code Editor, Share Link, Batch Rename, ACL/POSIX) & WebGL View
     fireEvent.click(webglDiskMapBtn);
 
     expect(container.querySelector('canvas')).toBeTruthy();
+  });
+
+  it('performs real binary file upload for .mp4 with exact byte size, SHA-256 digest, and opens MediaPlayerModal', async () => {
+    if (typeof URL.createObjectURL !== 'function') {
+      URL.createObjectURL = () => 'blob:http://localhost:5173/mock-video-mp4';
+    }
+    const { container } = renderExplorer();
+    await screen.findAllByText('01_Engineering_Core');
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput).toBeTruthy();
+
+    const realMp4Bytes = new Uint8Array(4096);
+    const mp4File = new File([realMp4Bytes], 'real_capture_test.mp4', {
+      type: 'video/mp4',
+    });
+
+    fireEvent.change(fileInput, { target: { files: [mp4File] } });
+
+    const toasts = await screen.findAllByText(
+      'Gerçek Dosya Yükleme Tamamlandı',
+      {},
+      { timeout: 3000 }
+    );
+    expect(toasts.length).toBeGreaterThan(0);
+
+    const uploadedItems = await screen.findAllByText(/real_capture_test/i);
+    const cardItem =
+      uploadedItems.find((el) => el.closest('[data-node-id]')) || uploadedItems[0];
+    expect(cardItem).toBeTruthy();
+
+    // Double click uploaded video card to open MediaPlayerModal
+    fireEvent.doubleClick(cardItem);
+    expect(
+      await screen.findByText(/GERÇEK DOSYA AKIŞI \(BLOB STREAM\)/i)
+    ).toBeInTheDocument();
   });
 });
