@@ -1,0 +1,42 @@
+{
+  "name": "filemangl",
+  "private": true,
+  "version": "1.0.4",
+  "description": "Enterprise WebGL-Accelerated React File Manager with SOLID Architecture, Hybrid ACL+POSIX Permissions & Universal Backend Connector",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/umitunc/filemangl.git"
+  },
+  "homepage": "https://github.com/umitunc/filemangl#readme",
+  "bugs": {
+    "url": "https://github.com/umitunc/filemangl/issues"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "jsdom": "^29.1.1",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.5",
+    "vitest": "^5.0.5"
+  }
+}
