@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" width="1200" height="380" fill="none">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bg_grad" x1="0" y1="0" x2="1200" y2="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#080C14" />
+      <stop offset="50%" stop-color="#0B1324" />
+      <stop offset="100%" stop-color="#060A10" />
+    </linearGradient>
+
+    <!-- Radial Glows -->
+    <radialGradient id="glow_emerald" cx="240" cy="190" r="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#10DC9E" stop-opacity="0.22" />
+      <stop offset="50%" stop-color="#0084FF" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#080C14" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="glow_cyan" cx="800" cy="140" r="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00C6FF" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#080C14" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Border Linear Gradient -->
+    <linearGradient id="border_grad" x1="0" y1="0" x2="1200" y2="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#10DC9E" stop-opacity="0.4" />
+      <stop offset="40%" stop-color="#0084FF" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.06" />
+    </linearGradient>
+
+    <!-- Title Gradient -->
+    <linearGradient id="title_grad" x1="0" y1="0" x2="480" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="45%" stop-color="#F0FDFA" />
+      <stop offset="75%" stop-color="#67E8F9" />
+      <stop offset="100%" stop-color="#38BDF8" />
+    </linearGradient>
+
+    <!-- Pill Gradient -->
+    <linearGradient id="pill_grad" x1="0" y1="0" x2="200" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#10DC9E" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#0284C7" stop-opacity="0.2" />
+    </linearGradient>
+
+    <!-- Folder Gradients (New Precision Origami Geometry) -->
+    <clipPath id="b_hyp_clip">
+      <path d="M28 12H58C65.5 12 71.2 16.5 74.2 22H90C101.046 22 110 30.9543 110 42V86C110 98.1503 100.15 108 88 108H32C19.8497 108 10 98.1503 10 86V30C10 20.0589 18.0589 12 28 12Z" />
+    </clipPath>
+    <linearGradient id="b_hyp_back" x1="14" y1="12" x2="76" y2="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0088FF" />
+      <stop offset="50%" stop-color="#0052C8" />
+      <stop offset="100%" stop-color="#002266" />
+    </linearGradient>
+    <linearGradient id="b_hyp_facet" x1="16" y1="14" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38C8FF" stop-opacity="0.42" />
+      <stop offset="100%" stop-color="#002266" stop-opacity="0.05" />
+    </linearGradient>
+    <linearGradient id="b_hyp_mid" x1="88" y1="20" x2="18" y2="98" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#14EEEC" />
+      <stop offset="38%" stop-color="#00B8FF" />
+      <stop offset="76%" stop-color="#006BE6" />
+      <stop offset="100%" stop-color="#00389E" />
+    </linearGradient>
+    <linearGradient id="b_hyp_front" x1="104" y1="32" x2="16" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2FF58E" />
+      <stop offset="36%" stop-color="#10DC9E" />
+      <stop offset="70%" stop-color="#00B2E8" />
+      <stop offset="100%" stop-color="#006AE0" />
+    </linearGradient>
+    <linearGradient id="b_hyp_fold" x1="12" y1="62" x2="82" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2FF58E" stop-opacity="0.88" />
+      <stop offset="55%" stop-color="#00C4F0" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#004EC2" stop-opacity="0.15" />
+    </linearGradient>
+    <linearGradient id="b_hyp_rim_front" x1="106" y1="36" x2="16" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#B0FFD4" stop-opacity="0.95" />
+      <stop offset="50%" stop-color="#5CEEFF" stop-opacity="0.55" />
+      <stop offset="100%" stop-color="#0077FF" stop-opacity="0.1" />
+    </linearGradient>
+    <linearGradient id="b_hyp_rim_mid" x1="96" y1="22" x2="14" y2="72" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9EFFFF" stop-opacity="0.9" />
+      <stop offset="55%" stop-color="#38C8FF" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#0044AA" stop-opacity="0.1" />
+    </linearGradient>
+    <filter id="icon_glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#00D2B4" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <style>
+    .banner-font { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif; }
+    .mono-font { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+  </style>
+
+  <!-- Card Frame -->
+  <rect x="1" y="1" width="1198" height="378" rx="20" fill="url(#bg_grad)" stroke="url(#border_grad)" stroke-width="2" />
+
+  <!-- Ambient Glows -->
+  <circle cx="240" cy="190" r="320" fill="url(#glow_emerald)" />
+  <circle cx="820" cy="140" r="400" fill="url(#glow_cyan)" />
+
+  <!-- Subtle Blueprint Tech Grid Lines -->
+  <g opacity="0.07" stroke="#38BDF8" stroke-width="1">
+    <path d="M0 60 H1200 M0 120 H1200 M0 180 H1200 M0 240 H1200 M0 300 H1200" />
+    <path d="M120 0 V380 M240 0 V380 M360 0 V380 M480 0 V380 M600 0 V380 M720 0 V380 M840 0 V380 M960 0 V380 M1080 0 V380" />
+  </g>
+
+  <!-- Big Logo Icon (Scaled 1.9x at X: 110, Y: 75) -->
+  <g transform="translate(110, 75) scale(1.9)" filter="url(#icon_glow)">
+    <g clip-path="url(#b_hyp_clip)">
+      <path d="M28 12H58C65.5 12 71.2 16.5 74.2 22H90C101.046 22 110 30.9543 110 42V86C110 98.1503 100.15 108 88 108H32C19.8497 108 10 98.1503 10 86V30C10 20.0589 18.0589 12 28 12Z" fill="url(#b_hyp_back)" />
+      <path d="M28 12H54L34 62H10V30C10 20.0589 18.0589 12 28 12Z" fill="url(#b_hyp_facet)" />
+      <rect x="22" y="22" width="24" height="5" rx="2.5" fill="#67E8F9" fill-opacity="0.55" />
+      <path d="M10 66C18 69 27 66 35 55L55 29C60.5 22 68 19.5 77 19.5H110V45H10V66Z" fill="#001238" fill-opacity="0.38" />
+      <path d="M10 68.5C18.5 71.5 27.5 68 35.8 57.2L56.2 30.8C61.4 24.2 68.6 22 77.5 22H90C101.046 22 110 30.9543 110 42V86C110 98.1503 100.15 108 88 108H32C19.8497 108 10 98.1503 10 86V68.5Z" fill="url(#b_hyp_mid)" />
+      <path d="M11 69.2C18.8 71.8 27.6 68.2 35.8 57.5L56.2 31.2C61.4 24.6 68.6 22.75 77.5 22.75H90" stroke="url(#b_hyp_rim_mid)" stroke-width="1.5" stroke-linecap="round" />
+      <path d="M10 86C22 89 35 83 45 69L63 44C69 35.8 77.5 32 88 32H110V60H10V86Z" fill="#001845" fill-opacity="0.36" />
+      <path d="M10 88C22.5 90.8 35.4 84.8 45.6 70.6L63.8 45.4C69.6 37.4 77.8 34 88.2 34H110V86C110 98.1503 100.15 108 88 108H32C19.8497 108 10 98.1503 10 86V88Z" fill="url(#b_hyp_front)" />
+      <path d="M11 88.5C22.8 91.2 35.5 85.2 45.6 71L63.8 45.8C69.6 37.8 77.8 34.75 88.2 34.75H109" stroke="url(#b_hyp_rim_front)" stroke-width="1.5" stroke-linecap="round" />
+      <path d="M10 54H26C33.5 54 39.8 57.8 44.2 64.2L58.5 85.2C64.2 93.6 73.2 98 84.5 98H106.5C102.8 104 95.9 108 88 108H32C19.8497 108 10 98.1503 10 86V54Z" fill="url(#b_hyp_fold)" />
+    </g>
+  </g>
+
+  <!-- Typography Area -->
+  <g transform="translate(410, 80)">
+    <!-- Version Pill -->
+    <g transform="translate(0, 0)">
+      <rect width="210" height="28" rx="14" fill="url(#pill_grad)" stroke="#10DC9E" stroke-opacity="0.4" stroke-width="1" />
+      <circle cx="14" cy="14" r="4.5" fill="#2FF58E" />
+      <text x="28" y="18" fill="#A7FFCF" font-size="12" font-weight="700" class="banner-font" letter-spacing="1">ENTERPRISE v1.0.4 • 60 FPS</text>
+    </g>
+
+    <!-- Main Title -->
+    <text x="0" y="85" fill="url(#title_grad)" font-size="64" font-weight="900" class="banner-font" letter-spacing="-1.5">FileManGL</text>
+
+    <!-- Tagline -->
+    <text x="2" y="125" fill="#E2E8F0" font-size="20" font-weight="600" class="banner-font" letter-spacing="-0.2">
+      WebGL2-Accelerated React File Manager &amp; Unified Permission Engine
+    </text>
+
+    <!-- Subtitle / Architecture highlights -->
+    <text x="2" y="156" fill="#94A3B8" font-size="14.5" font-weight="400" class="banner-font">
+      SOLID Architecture • NTFS ACL + POSIX Matrix • Quota Policies • Win11 Fluent UI • Universal REST Connector
+    </text>
+
+    <!-- Feature Tech Chips -->
+    <g transform="translate(0, 188)">
+      <rect x="0" y="0" width="112" height="32" rx="8" fill="#1E293B" stroke="#334155" stroke-width="1" />
+      <text x="14" y="21" fill="#38BDF8" font-size="13" font-weight="600" class="mono-font">⚡ WebGL2</text>
+
+      <rect x="122" y="0" width="115" height="32" rx="8" fill="#1E293B" stroke="#334155" stroke-width="1" />
+      <text x="136" y="21" fill="#67E8F9" font-size="13" font-weight="600" class="mono-font">⚛️ React 18</text>
+
+      <rect x="247" y="0" width="138" height="32" rx="8" fill="#1E293B" stroke="#334155" stroke-width="1" />
+      <text x="261" y="21" fill="#60A5FA" font-size="13" font-weight="600" class="mono-font">🔷 TypeScript</text>
+
+      <rect x="395" y="0" width="130" height="32" rx="8" fill="#1E293B" stroke="#334155" stroke-width="1" />
+      <text x="409" y="21" fill="#4ADE80" font-size="13" font-weight="600" class="mono-font">🏛️ SOLID VFS</text>
+
+      <rect x="535" y="0" width="168" height="32" rx="8" fill="#1E293B" stroke="#334155" stroke-width="1" />
+      <text x="549" y="21" fill="#F472B6" font-size="13" font-weight="600" class="mono-font">🗺️ 3D Cushion Map</text>
+    </g>
+  </g>
+</svg>
