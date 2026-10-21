@@ -61,10 +61,10 @@ export const HighlightedCodeBlock: React.FC<HighlightedCodeBlockProps> = ({
       className="code-surface-dark rounded-xl overflow-hidden border border-slate-800/90 bg-[#060911] my-4 shadow-xl"
     >
       {/* Top IDE Tab Header */}
-      <div className="px-4 py-2.5 bg-[#0c1220] border-b border-slate-800/90 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+      <div className="px-3 sm:px-4 py-2 sm:py-2.5 bg-[#0c1220] border-b border-slate-800/90 flex items-center justify-between gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 overflow-hidden">
           {/* macOS/Windows Editor Traffic Dots */}
-          <div className="flex items-center gap-1.5 mr-1 shrink-0">
+          <div className="hidden xs:flex sm:flex items-center gap-1.5 mr-1 shrink-0">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
             <span className="w-2.5 h-2.5 rounded-full bg-amber-400/80" />
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
@@ -77,13 +77,13 @@ export const HighlightedCodeBlock: React.FC<HighlightedCodeBlockProps> = ({
             code_blocks
           </span>
           <span
-            className="text-xs font-mono font-semibold text-slate-100 truncate"
+            className="text-[11px] sm:text-xs font-mono font-semibold text-slate-100 truncate"
             title={title}
           >
             {title}
           </span>
 
-          <span className="px-2 py-0.5 text-[10px] font-mono uppercase rounded bg-slate-800 text-cyan-300 border border-slate-700 shrink-0">
+          <span className="px-1.5 sm:px-2 py-0.5 text-[10px] font-mono uppercase rounded bg-slate-800 text-cyan-300 border border-slate-700 shrink-0">
             {language}
           </span>
 
@@ -102,7 +102,7 @@ export const HighlightedCodeBlock: React.FC<HighlightedCodeBlockProps> = ({
 
         <button
           onClick={handleCopy}
-          className="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-xs text-slate-200 flex items-center gap-1.5 transition shrink-0"
+          className="px-2 sm:px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-[11px] sm:text-xs text-slate-200 flex items-center gap-1 sm:gap-1.5 transition shrink-0"
         >
           <span
             className={`material-symbols-outlined ${
@@ -112,15 +112,17 @@ export const HighlightedCodeBlock: React.FC<HighlightedCodeBlockProps> = ({
           >
             {copied ? 'check_circle' : 'content_copy'}
           </span>
-          <span>{copied ? 'Kopyalandı' : 'Kodu Kopyala'}</span>
+          <span className="hidden xs:inline sm:inline">
+            {copied ? 'Kopyalandı' : 'Kodu Kopyala'}
+          </span>
         </button>
       </div>
 
       {/* Optional Architectural Note Banner */}
       {description && (
-        <div className="px-4 py-2 bg-[#090e1a] border-b border-slate-800/70 text-[11px] text-slate-300 flex items-center gap-2">
+        <div className="px-3 sm:px-4 py-2 bg-[#090e1a] border-b border-slate-800/70 text-[11px] text-slate-300 flex items-start sm:items-center gap-2">
           <span
-            className="material-symbols-outlined text-amber-400 shrink-0"
+            className="material-symbols-outlined text-amber-400 shrink-0 mt-0.5 sm:mt-0"
             style={{ fontSize: '15px' }}
           >
             lightbulb
@@ -130,7 +132,7 @@ export const HighlightedCodeBlock: React.FC<HighlightedCodeBlockProps> = ({
       )}
 
       {/* Colorized Code Lines with Line Numbers */}
-      <div className="p-3.5 overflow-x-auto font-mono text-xs leading-relaxed select-text">
+      <div className="p-2.5 sm:p-3.5 overflow-x-auto font-mono text-[11px] sm:text-xs leading-relaxed select-text">
         <table className="w-full border-collapse">
           <tbody>
             {tokenizedLines.map((tokens, lineIdx) => (
