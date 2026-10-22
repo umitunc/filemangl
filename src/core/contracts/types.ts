@@ -206,11 +206,17 @@ export interface IFileSystemDriver {
  */
 export type SupportedLocale = 'tr' | 'en' | 'de' | 'ru';
 
+export type BorderRadiusPreset = 'sharp' | 'squircle' | 'pill';
+
 export interface IFileManagerConfig {
   volumeName: string;
   mountPath: string;
   locale: SupportedLocale;
   theme: 'dark' | 'light';
+  fontScale?: number; // 85 - 125+ percentage scale synchronized with SheetGL & UXU Theme Studio
+  borderRadius?: BorderRadiusPreset | number; // 'sharp' | 'squircle' | 'pill' or custom px radius
+  accentColor?: string; // Primary accent hex color (inherits --uxu-primary when omitted)
+  inheritHostTheme?: boolean; // Automatically inherit host CSS theme variables (--uxu-*)
   driverType: 'vfs_memory' | 'vfs_localstorage' | 'rest_connector';
   connectorEndpoint: string;
   connectorAuthToken?: string;

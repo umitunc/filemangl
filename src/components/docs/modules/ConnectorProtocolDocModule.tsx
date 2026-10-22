@@ -176,5 +176,9 @@ export const ConnectorProtocolDocModule: IDocModuleDefinition = {
   searchKeywords: ['connector', 'json', 'protocol', 'elfinder', 'cmd', 'chmod', 'rest'],
   iconName: 'hub',
   iconColorClass: 'text-cyan-400',
+  subItems: [
+    { id: 'spec_json_req', label: '2.1 JSON Komut & ACL Payload Şeması', badge: 'JSON' },
+    { id: 'spec_driver_ts', label: '2.2 RestConnectorDriver TypeScript Sınıfı', badge: 'Driver' },
+  ],
   Component: ConnectorProtocolComponent,
 };

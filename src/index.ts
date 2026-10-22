@@ -116,5 +116,6 @@ export type {
   AuditLogEntry,
   IFileSystemDriver,
   SupportedLocale,
+  BorderRadiusPreset,
   IFileManagerConfig,
 } from './core/contracts/types';

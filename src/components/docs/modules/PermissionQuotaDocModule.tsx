@@ -128,5 +128,8 @@ export const PermissionQuotaDocModule: IDocModuleDefinition = {
   searchKeywords: ['acl', 'posix', '0755', 'permission', 'quota', 'lock', 'eacces', 'enospc'],
   iconName: 'shield_lock',
   iconColorClass: 'text-amber-400',
+  subItems: [
+    { id: 'perm_engine_code', label: '5.1 PermissionEngine & QuotaEngine API', badge: '5 Katman' },
+  ],
   Component: PermissionQuotaComponent,
 };

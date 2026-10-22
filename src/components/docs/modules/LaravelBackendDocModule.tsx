@@ -178,5 +178,18 @@ export const LaravelBackendDocModule: IDocModuleDefinition = {
   searchKeywords: ['laravel', 'php', 'sanctum', 'storage', 'controller', 'chmod', 'quota'],
   iconName: 'dns',
   iconColorClass: 'text-rose-400',
+  subItems: [
+    { id: 'laravel_routes', label: '3.1 routes/api.php (Sanctum Rotaları)', badge: 'Route' },
+    {
+      id: 'laravel_service',
+      label: '3.2 FileManGLDiskGovernanceService.php',
+      badge: 'Service',
+    },
+    {
+      id: 'laravel_controller',
+      label: '3.3 FileManGLConnectorController.php',
+      badge: 'Controller',
+    },
+  ],
   Component: LaravelBackendComponent,
 };

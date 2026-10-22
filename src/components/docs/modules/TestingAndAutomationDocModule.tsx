@@ -104,11 +104,14 @@ export const TestingAndAutomationDocModule: IDocModuleDefinition = {
   stepNumber: 8,
   title: '8. UX/UI Test Otomasyonu (Vitest)',
   subtitle: 'Birim, Entegrasyon, Sürükle-Bırak, Çoklu Sekme ve WebGL2 Otomasyon Testleri',
-  badge: '22+ Tests',
+  badge: '26+ Tests',
   routeSlug: '/documentation/testing',
   solidFocus: ['SRP', 'LSP', 'DIP'],
   searchKeywords: ['test', 'vitest', 'automation', 'otomasyon', 'drag', 'drop', 'marquee'],
   iconName: 'fact_check',
   iconColorClass: 'text-emerald-400',
+  subItems: [
+    { id: 'test_example_dnd', label: '8.1 Vitest & RTL Sürükle-Bırak Otomasyonu', badge: 'Vitest' },
+  ],
   Component: TestingAndAutomationComponent,
 };

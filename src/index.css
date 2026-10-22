@@ -2,11 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --fm-font-scale: var(--uxu-font-scale, 1);
+  --fm-primary: var(--uxu-primary, #2563eb);
+  --fm-primary-hover: var(--uxu-primary-hover, #3b82f6);
+  --fm-primary-soft: color-mix(in srgb, var(--fm-primary) 16%, transparent);
+  --fm-primary-border: color-mix(in srgb, var(--fm-primary) 42%, transparent);
+  --fm-radius-xs: calc(var(--uxu-radius-sm, 8px) * 0.65);
+  --fm-radius-sm: var(--uxu-radius-sm, 8px);
+  --fm-radius-md: var(--uxu-radius-md, 12px);
+  --fm-radius-lg: var(--uxu-radius-lg, 16px);
+  --fm-radius-xl: var(--uxu-radius-xl, 20px);
+}
+
 @layer base {
+  html {
+    font-size: calc(16px * var(--fm-font-scale, var(--uxu-font-scale, 1)));
+  }
+
   body {
     background-color: #070b12;
     color: #f1f5f9;
-    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: calc(14px * var(--fm-font-scale, var(--uxu-font-scale, 1)));
+    line-height: 1.5;
     transition: background-color 0.2s ease, color 0.2s ease;
   }
 
@@ -49,6 +68,150 @@
 
 .ms-filled {
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* ============================================================================
+   SHEETGL-STANDARD UNIFIED TYPOGRAPHY & DYNAMIC FONT SCALE ENGINE
+   Ensures FileManGL base font sizes match SheetGL (13.5px primary, 12.5px header/meta,
+   12px badge) and scale proportionally with --fm-font-scale / --uxu-font-scale (85% - 125%+)
+============================================================================ */
+.filemangl-root {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: calc(13.5px * var(--fm-font-scale, var(--uxu-font-scale, 1)));
+  line-height: 1.45;
+}
+
+.text-\[7px\],
+.text-\[8px\],
+.text-\[9px\],
+.text-\[10px\] {
+  font-size: calc(12px * var(--fm-font-scale, var(--uxu-font-scale, 1))) !important;
+  line-height: 1.4 !important;
+}
+
+.text-\[11px\] {
+  font-size: calc(13px * var(--fm-font-scale, var(--uxu-font-scale, 1))) !important;
+  line-height: 1.45 !important;
+}
+
+.text-\[12px\],
+.text-xs {
+  font-size: calc(13.5px * var(--fm-font-scale, var(--uxu-font-scale, 1))) !important;
+  line-height: 1.45 !important;
+}
+
+.text-\[13px\],
+.text-\[13\.5px\],
+.text-\[14px\],
+.text-sm {
+  font-size: calc(14.5px * var(--fm-font-scale, var(--uxu-font-scale, 1))) !important;
+  line-height: 1.5 !important;
+}
+
+.text-\[15px\],
+.text-base {
+  font-size: calc(16px * var(--fm-font-scale, var(--uxu-font-scale, 1))) !important;
+  line-height: 1.55 !important;
+}
+
+/* ============================================================================
+   CONFIGURABLE BORDER-RADIUS & SHEETGL / UXU THEME INHERITANCE ENGINE
+   Synchronizes geometry (--fm-radius-*) and brand/surface tokens (--fm-primary,
+   --uxu-*) across SheetGL and FileManGL.
+============================================================================ */
+.filemangl-root.rounded-2xl {
+  border-radius: var(--fm-radius-xl, var(--uxu-radius-xl, 20px)) !important;
+}
+
+.filemangl-root.rounded-none {
+  border-radius: 0px !important;
+}
+
+.filemangl-root .rounded-2xl {
+  border-radius: var(--fm-radius-xl, var(--uxu-radius-xl, 20px)) !important;
+}
+
+.filemangl-root .rounded-xl {
+  border-radius: var(--fm-radius-lg, var(--uxu-radius-lg, 14px)) !important;
+}
+
+.filemangl-root .rounded-lg {
+  border-radius: var(--fm-radius-md, var(--uxu-radius-md, 10px)) !important;
+}
+
+.filemangl-root .rounded-t-lg {
+  border-top-left-radius: var(--fm-radius-md, var(--uxu-radius-md, 10px)) !important;
+  border-top-right-radius: var(--fm-radius-md, var(--uxu-radius-md, 10px)) !important;
+}
+
+.filemangl-root .rounded-md,
+.filemangl-root .rounded-\[6px\] {
+  border-radius: var(--fm-radius-sm, var(--uxu-radius-sm, 7px)) !important;
+}
+
+.filemangl-root .rounded {
+  border-radius: var(--fm-radius-xs, 5px) !important;
+}
+
+/* Dynamic Accent / Primary Color Inheritance (Dark & Light) */
+.filemangl-root .bg-blue-600,
+.filemangl-root .bg-blue-500,
+.filemangl-root .bg-\[\#0078d4\] {
+  background-color: var(--fm-primary, var(--uxu-primary, #2563eb)) !important;
+}
+
+.filemangl-root .hover\:bg-blue-500:hover,
+.filemangl-root .hover\:bg-blue-600:hover {
+  background-color: var(--fm-primary-hover, var(--uxu-primary-hover, #3b82f6)) !important;
+}
+
+.filemangl-root .bg-blue-600\/20,
+.filemangl-root .bg-blue-500\/20,
+.filemangl-root .bg-blue-500\/15,
+.filemangl-root .bg-blue-500\/10,
+.filemangl-root .bg-\[\#cce8ff\]\/75,
+.theme-light.filemangl-root .bg-blue-600\/20,
+.theme-light.filemangl-root .bg-blue-500\/20,
+.theme-light.filemangl-root .bg-blue-500\/15,
+.theme-light.filemangl-root .bg-\[\#cce8ff\]\/75 {
+  background-color: var(
+    --fm-primary-soft,
+    color-mix(in srgb, var(--fm-primary, var(--uxu-primary, #2563eb)) 16%, transparent)
+  ) !important;
+}
+
+.filemangl-root .text-blue-400,
+.filemangl-root .text-blue-300,
+.filemangl-root .text-blue-200,
+.filemangl-root .text-\[\#0078d4\],
+.theme-light.filemangl-root .text-blue-400,
+.theme-light.filemangl-root .text-blue-300,
+.theme-light.filemangl-root .text-blue-200 {
+  color: var(--fm-primary, var(--uxu-primary, #2563eb)) !important;
+}
+
+.filemangl-root .border-blue-500,
+.filemangl-root .border-blue-500\/50,
+.filemangl-root .border-blue-500\/40,
+.filemangl-root .border-blue-500\/30,
+.filemangl-root .border-\[\#0078d4\],
+.theme-light.filemangl-root .border-blue-500\/40,
+.theme-light.filemangl-root .border-blue-500\/30 {
+  border-color: var(
+    --fm-primary-border,
+    color-mix(in srgb, var(--fm-primary, var(--uxu-primary, #2563eb)) 45%, transparent)
+  ) !important;
+}
+
+/* Host Surface & Border Inheritance (--uxu-*) when inheritHostTheme is enabled */
+.filemangl-root[data-inherit-theme='true'] {
+  background-color: var(--uxu-bg-elevated, #0b101b);
+  border-color: var(--uxu-border-subtle, rgba(30, 41, 59, 0.9));
+}
+
+.theme-light.filemangl-root[data-inherit-theme='true'] {
+  background-color: var(--uxu-bg-elevated, #f8fafc) !important;
+  border-color: var(--uxu-border-subtle, #cbd5e1) !important;
 }
 
 /* ============================================================================
@@ -214,7 +377,7 @@
 .theme-light .text-blue-300,
 .theme-light .text-blue-400,
 .theme-light .text-sky-400 {
-  color: #1d4ed8 !important;
+  color: var(--fm-primary, var(--uxu-primary, #1d4ed8)) !important;
 }
 
 .theme-light .text-indigo-200,
@@ -283,8 +446,14 @@
 .theme-light .hover\:bg-blue-600\/30:hover,
 .theme-light .hover\:bg-blue-600\/25:hover,
 .theme-light .hover\:bg-blue-600\/20:hover {
-  background-color: #eff6ff !important;
-  border-color: #93c5fd !important;
+  background-color: var(
+    --fm-primary-soft,
+    color-mix(in srgb, var(--fm-primary, var(--uxu-primary, #2563eb)) 14%, #ffffff)
+  ) !important;
+  border-color: var(
+    --fm-primary-border,
+    color-mix(in srgb, var(--fm-primary, var(--uxu-primary, #2563eb)) 42%, #ffffff)
+  ) !important;
 }
 
 .theme-light .bg-indigo-600\/25,

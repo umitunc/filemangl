@@ -57,8 +57,9 @@ export const HighlightedCodeBlock: React.FC<HighlightedCodeBlockProps> = ({
 
   return (
     <div
+      id={id}
       data-codeblock-id={id}
-      className="code-surface-dark rounded-xl overflow-hidden border border-slate-800/90 bg-[#060911] my-4 shadow-xl"
+      className="code-surface-dark rounded-xl overflow-hidden border border-slate-800/90 bg-[#060911] my-4 shadow-xl scroll-mt-20"
     >
       {/* Top IDE Tab Header */}
       <div className="px-3 sm:px-4 py-2 sm:py-2.5 bg-[#0c1220] border-b border-slate-800/90 flex items-center justify-between gap-2 sm:gap-3">

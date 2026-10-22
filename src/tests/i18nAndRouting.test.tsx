@@ -109,7 +109,9 @@ describe('JSON Localization (i18n: TR / EN / DE / RU) & URL Routing (/demo, /doc
     expect(stringSpans.length).toBeGreaterThan(0);
 
     // Switch to SOLID Architecture module and verify all 5 SOLID pillars are displayed
-    const solidModuleBtn = screen.getByText(/6\. SOLID Mimari/i);
+    const solidMatches = screen.getAllByText(/6\. SOLID Mimari/i);
+    const solidModuleBtn =
+      solidMatches.find((el) => el.tagName.toLowerCase() !== 'option') || solidMatches[0];
     fireEvent.click(solidModuleBtn);
     expect(screen.getByText('Single Responsibility')).toBeInTheDocument();
     expect(screen.getByText('Liskov Substitution')).toBeInTheDocument();

@@ -156,11 +156,16 @@ export interface IFileSystemDriver {
  * Fully declarative Configuration Contract for <FileManGL config={...} />
  */
 export type SupportedLocale = 'tr' | 'en' | 'de' | 'ru';
+export type BorderRadiusPreset = 'sharp' | 'squircle' | 'pill';
 export interface IFileManagerConfig {
     volumeName: string;
     mountPath: string;
     locale: SupportedLocale;
     theme: 'dark' | 'light';
+    fontScale?: number;
+    borderRadius?: BorderRadiusPreset | number;
+    accentColor?: string;
+    inheritHostTheme?: boolean;
     driverType: 'vfs_memory' | 'vfs_localstorage' | 'rest_connector';
     connectorEndpoint: string;
     connectorAuthToken?: string;

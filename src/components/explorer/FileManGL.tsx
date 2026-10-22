@@ -2445,13 +2445,63 @@ export const FileManGL: React.FC<FileManGLProps> = ({
     [allNodes]
   );
 
+  const themeStyleVars = useMemo(() => {
+    const vars: Record<string, string> = {};
+
+    if (typeof config.fontScale === 'number' && config.fontScale > 0) {
+      vars['--fm-font-scale'] = String(config.fontScale / 100);
+    }
+
+    if (config.borderRadius !== undefined) {
+      if (config.borderRadius === 'sharp') {
+        vars['--fm-radius-xs'] = '2px';
+        vars['--fm-radius-sm'] = '3px';
+        vars['--fm-radius-md'] = '4px';
+        vars['--fm-radius-lg'] = '6px';
+        vars['--fm-radius-xl'] = '8px';
+      } else if (config.borderRadius === 'pill') {
+        vars['--fm-radius-xs'] = '10px';
+        vars['--fm-radius-sm'] = '14px';
+        vars['--fm-radius-md'] = '18px';
+        vars['--fm-radius-lg'] = '24px';
+        vars['--fm-radius-xl'] = '30px';
+      } else if (typeof config.borderRadius === 'number') {
+        const r = Math.max(0, config.borderRadius);
+        vars['--fm-radius-xs'] = `${Math.round(r * 0.45)}px`;
+        vars['--fm-radius-sm'] = `${Math.round(r * 0.7)}px`;
+        vars['--fm-radius-md'] = `${r}px`;
+        vars['--fm-radius-lg'] = `${Math.round(r * 1.35)}px`;
+        vars['--fm-radius-xl'] = `${Math.round(r * 1.7)}px`;
+      } else {
+        // 'squircle' preset (Apple HIG / Material You balanced geometry)
+        vars['--fm-radius-xs'] = 'var(--uxu-radius-xs, 6px)';
+        vars['--fm-radius-sm'] = 'var(--uxu-radius-sm, 8px)';
+        vars['--fm-radius-md'] = 'var(--uxu-radius-md, 12px)';
+        vars['--fm-radius-lg'] = 'var(--uxu-radius-lg, 16px)';
+        vars['--fm-radius-xl'] = 'var(--uxu-radius-xl, 20px)';
+      }
+    }
+
+    if (config.accentColor) {
+      vars['--fm-primary'] = config.accentColor;
+      vars['--fm-primary-hover'] = `color-mix(in srgb, ${config.accentColor} 84%, white)`;
+      vars['--fm-primary-soft'] = `color-mix(in srgb, ${config.accentColor} 16%, transparent)`;
+      vars['--fm-primary-border'] = `color-mix(in srgb, ${config.accentColor} 42%, transparent)`;
+    }
+
+    return vars as React.CSSProperties;
+  }, [config.fontScale, config.borderRadius, config.accentColor]);
+
   return (
     <div
+      style={themeStyleVars}
+      data-border-radius={String(config.borderRadius ?? 'squircle')}
+      data-inherit-theme={config.inheritHostTheme !== false ? 'true' : 'false'}
       onClick={() => {
         setContextMenu(null);
         setOpenToolbarMenu(null);
       }}
-      className={`flex flex-col bg-[#0b101b] text-slate-100 border border-slate-800/90 shadow-2xl overflow-hidden ${
+      className={`filemangl-root flex flex-col bg-[#0b101b] text-slate-100 border border-slate-800/90 shadow-2xl overflow-hidden ${
         config.theme === 'light' ? 'theme-light' : ''
       } ${
         isFullscreen

@@ -58,6 +58,12 @@ export interface HighlightedCodeBlockProps {
   showLineNumbers?: boolean;
 }
 
+export interface DocSubSectionItem {
+  readonly id: string;
+  readonly label: string;
+  readonly badge?: string;
+}
+
 /**
  * Interface Segregation & Dependency Inversion:
  * Each documentation chapter is an independent, self-contained module implementing IDocModuleDefinition.
@@ -73,5 +79,6 @@ export interface IDocModuleDefinition {
   readonly searchKeywords: string[];
   readonly iconName: string;
   readonly iconColorClass: string;
+  readonly subItems?: ReadonlyArray<DocSubSectionItem>;
   readonly Component: React.FC;
 }

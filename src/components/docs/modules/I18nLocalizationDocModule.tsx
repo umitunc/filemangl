@@ -93,13 +93,17 @@ export function CustomToolbarButton() {
 export const I18nLocalizationDocModule: IDocModuleDefinition = {
   id: 'i18n_localization',
   stepNumber: 7,
-  title: '7. Çoklu Dil (i18n JSON: TR / EN / DE)',
-  subtitle: 'tr.json, en.json, de.json Sözlükleri, useI18n Hook ve URL Dil Parametresi',
+  title: '7. Çoklu Dil (i18n JSON: TR / EN / DE / RU)',
+  subtitle: 'tr.json, en.json, de.json, ru.json Sözlükleri, useI18n Hook ve Dil Ayarları',
   badge: 'i18n JSON',
   routeSlug: '/documentation/i18n',
   solidFocus: ['OCP', 'DIP'],
-  searchKeywords: ['i18n', 'json', 'tr', 'en', 'de', 'localization', 'ceviri', 'dil'],
+  searchKeywords: ['i18n', 'json', 'tr', 'en', 'de', 'ru', 'localization', 'ceviri', 'dil'],
   iconName: 'translate',
   iconColorClass: 'text-cyan-400',
+  subItems: [
+    { id: 'i18n_json_sample', label: '7.1 JSON Çeviri Sözlüğü Şeması', badge: '4 Dil' },
+    { id: 'i18n_usage', label: '7.2 useI18n() Hook & Özel Çeviri Kullanımı', badge: 'Hook' },
+  ],
   Component: I18nLocalizationComponent,
 };

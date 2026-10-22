@@ -1,1 +1,1 @@
-{"version":3,"file":"LaravelBackendDocModule.d.ts","sourceRoot":"","sources":["../../../../../../src/components/docs/modules/LaravelBackendDocModule.tsx"],"names":[],"mappings":"AACA,OAAO,EAAE,oBAAoB,EAAE,MAAM,uBAAuB,CAAC;AAwK7D,eAAO,MAAM,uBAAuB,EAAE,oBAYrC,CAAC"}
+{"version":3,"file":"LaravelBackendDocModule.d.ts","sourceRoot":"","sources":["../../../../../../src/components/docs/modules/LaravelBackendDocModule.tsx"],"names":[],"mappings":"AACA,OAAO,EAAE,oBAAoB,EAAE,MAAM,uBAAuB,CAAC;AAwK7D,eAAO,MAAM,uBAAuB,EAAE,oBAyBrC,CAAC"}

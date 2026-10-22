@@ -619,11 +619,26 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
     );
   };
 
+  // Synchronize row & card heights with SheetGL & UXU Theme Studio fontScale (85% - 125%+)
+  const scaleRatio = (() => {
+    if (typeof config.fontScale === 'number' && config.fontScale > 0) {
+      return config.fontScale / 100;
+    }
+    if (typeof document !== 'undefined') {
+      const cssVar = getComputedStyle(document.documentElement)
+        .getPropertyValue('--uxu-font-scale')
+        .trim();
+      const parsed = parseFloat(cssVar);
+      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return 1;
+  })();
+
   // ==========================================================================
   // 1. VIRTUALIZED DETAILS TABLE VIEW (Handles 50,000+ rows at 120 FPS)
   // ==========================================================================
   if (viewMode === 'details') {
-    const ROW_HEIGHT = 34;
+    const ROW_HEIGHT = Math.round(38 * scaleRatio);
     const startIdx = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 10);
     const endIdx = Math.min(
       nodes.length,
@@ -902,44 +917,44 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
     { minColWidth: number; rowHeight: number; iconSize: string; isHorizontal: boolean }
   > = {
     extra_large_icons: {
-      minColWidth: 152,
-      rowHeight: 164,
+      minColWidth: Math.round(156 * scaleRatio),
+      rowHeight: Math.round(170 * scaleRatio),
       iconSize: 'w-20 h-20',
       isHorizontal: false,
     },
     large_icons: {
-      minColWidth: 122,
-      rowHeight: 136,
+      minColWidth: Math.round(128 * scaleRatio),
+      rowHeight: Math.round(142 * scaleRatio),
       iconSize: 'w-14 h-14',
       isHorizontal: false,
     },
     medium_icons: {
-      minColWidth: 108,
-      rowHeight: 118,
+      minColWidth: Math.round(114 * scaleRatio),
+      rowHeight: Math.round(124 * scaleRatio),
       iconSize: 'w-10 h-10',
       isHorizontal: false,
     },
     small_icons: {
-      minColWidth: 190,
-      rowHeight: 40,
+      minColWidth: Math.round(200 * scaleRatio),
+      rowHeight: Math.round(42 * scaleRatio),
       iconSize: 'w-5 h-5',
       isHorizontal: true,
     },
     list: {
-      minColWidth: 220,
-      rowHeight: 36,
+      minColWidth: Math.round(230 * scaleRatio),
+      rowHeight: Math.round(38 * scaleRatio),
       iconSize: 'w-4 h-4',
       isHorizontal: true,
     },
     tiles: {
-      minColWidth: 250,
-      rowHeight: 68,
+      minColWidth: Math.round(260 * scaleRatio),
+      rowHeight: Math.round(72 * scaleRatio),
       iconSize: 'w-11 h-11',
       isHorizontal: true,
     },
     content: {
       minColWidth: 9999,
-      rowHeight: 64,
+      rowHeight: Math.round(68 * scaleRatio),
       iconSize: 'w-10 h-10',
       isHorizontal: true,
     },

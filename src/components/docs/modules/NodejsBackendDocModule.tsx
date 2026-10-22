@@ -127,5 +127,9 @@ export const NodejsBackendDocModule: IDocModuleDefinition = {
   searchKeywords: ['nodejs', 'express', 'fastify', 'typescript', 'sandbox', 'fs', 'chmod'],
   iconName: 'terminal',
   iconColorClass: 'text-emerald-400',
+  subItems: [
+    { id: 'node_server', label: '4.1 fileManGLConnector.ts Middleware', badge: 'Router' },
+    { id: 'node_mount_app', label: '4.2 Express Sunucusuna Mount Etme', badge: 'Express' },
+  ],
   Component: NodejsBackendComponent,
 };

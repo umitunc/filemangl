@@ -138,5 +138,9 @@ export const SolidArchitectureDocModule: IDocModuleDefinition = {
   searchKeywords: ['solid', 'srp', 'ocp', 'lsp', 'isp', 'dip', 'webgl', 'glsl', 's3', 'driver'],
   iconName: 'architecture',
   iconColorClass: 'text-purple-400',
+  subItems: [
+    { id: 'solid_driver', label: '6.1 Özel Sürücü (CustomS3Driver) Yazımı', badge: 'IFileSystemDriver' },
+    { id: 'solid_webgl_glsl', label: '6.2 WebGL2 Cushion Treemap GLSL Shader', badge: 'WebGL2' },
+  ],
   Component: SolidArchitectureComponent,
 };
