@@ -126,15 +126,15 @@ export const DocumentationPortal: React.FC<DocumentationPortalProps> = ({
           </div>
         </div>
 
-        {/* Registered Doc Modules List (Compact scrollable grid on mobile/tablet, full list on desktop) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-1.5 max-h-48 lg:max-h-none overflow-y-auto flex-1 pr-0.5">
+        {/* Registered Doc Modules List (Compact scrollable grid on mobile/tablet, natural stack on desktop) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-col content-start items-start gap-1.5 max-h-56 lg:max-h-none overflow-y-auto pr-0.5">
           {filteredModules.map((item) => {
             const isSelected = activeDoc === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveDoc(item.id)}
-                className={`w-full p-2 sm:p-2.5 rounded-xl text-left transition flex flex-col gap-1 border ${
+                className={`w-full p-2 sm:p-2.5 rounded-xl text-left transition flex flex-col gap-1 border shrink-0 ${
                   isSelected
                     ? 'bg-blue-600/20 border-blue-500/60 text-white shadow-sm'
                     : 'bg-slate-900/40 border-slate-800/70 text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'
@@ -177,7 +177,7 @@ export const DocumentationPortal: React.FC<DocumentationPortalProps> = ({
       </div>
 
       {/* Right Modular Content Area */}
-      <div className="lg:col-span-8 xl:col-span-9 p-4 sm:p-6 lg:p-8 min-w-0 overflow-x-hidden overflow-y-auto flex flex-col justify-between gap-6 text-sm text-slate-300 leading-relaxed">
+      <div className="lg:col-span-8 xl:col-span-9 p-4 sm:p-6 lg:p-7 min-w-0 overflow-x-hidden overflow-y-auto flex flex-col gap-6 text-sm text-slate-300 leading-relaxed">
         <div className="min-w-0">
           {/* Active Module Top Metadata Bar */}
           <div className="flex flex-wrap items-center justify-between gap-2 pb-3.5 sm:pb-4 mb-4 sm:mb-5 border-b border-slate-800/80 text-xs">

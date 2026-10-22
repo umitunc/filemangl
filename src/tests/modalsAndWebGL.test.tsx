@@ -162,4 +162,49 @@ describe('Modals (Code Editor, Share Link, Batch Rename, ACL/POSIX) & WebGL View
       await screen.findByText(/GERÇEK DOSYA AKIŞI \(BLOB STREAM\)/i)
     ).toBeInTheDocument();
   });
+
+  it('supports Google Drive style Folder Upload (webkitRelativePath) with 0-100% Upload Queue Tray and direct ZIP download for folders & selections', async () => {
+    if (typeof URL.createObjectURL !== 'function') {
+      URL.createObjectURL = () => 'blob:http://localhost:5173/mock-zip-blob';
+    }
+    const { container } = renderExplorer();
+    await screen.findAllByText('01_Engineering_Core');
+
+    const folderInput = container.querySelector(
+      '[data-testid="folder-upload-input"]'
+    ) as HTMLInputElement;
+    expect(folderInput).toBeTruthy();
+
+    const f1 = new File(['export const app = true;'], 'index.ts', {
+      type: 'text/typescript',
+    });
+    Object.defineProperty(f1, 'webkitRelativePath', {
+      value: 'Kurumsal_Klasor_2026/src/index.ts',
+    });
+
+    const f2 = new File(['# Proje Dokumani'], 'README.md', {
+      type: 'text/markdown',
+    });
+    Object.defineProperty(f2, 'webkitRelativePath', {
+      value: 'Kurumsal_Klasor_2026/README.md',
+    });
+
+    fireEvent.change(folderInput, { target: { files: [f1, f2] } });
+
+    // Verify Google Drive Upload Queue Tray is visible and reaches %100
+    const tray = await screen.findByTestId('upload-queue-tray');
+    expect(tray).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Kurumsal_Klasor_2026 \(Klasör Yüklemesi\)/i)
+    ).toBeInTheDocument();
+    expect(await screen.findByTestId('upload-percent-index.ts')).toHaveTextContent('%100');
+    expect(await screen.findByTestId('upload-percent-README.md')).toHaveTextContent('%100');
+
+    // Verify the uploaded folder is created in the explorer and selected, showing the floating ZIP download bar
+    expect((await screen.findAllByText('Kurumsal_Klasor_2026')).length).toBeGreaterThan(0);
+    const zipFolderBtn = await screen.findByText('Klasörü ZIP İndir (.zip)');
+    fireEvent.click(zipFolderBtn);
+
+    expect((await screen.findAllByText('ZIP Paketi İndiriliyor')).length).toBeGreaterThan(0);
+  });
 });

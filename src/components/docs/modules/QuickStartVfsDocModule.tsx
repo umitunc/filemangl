@@ -66,18 +66,19 @@ const QuickStartVfsComponent: React.FC = () => {
 
       <HighlightedCodeBlock
         id="qs_install"
-        title="Terminal — Paket Kurulumu & Test Çalıştırma"
+        title="Terminal — NPM / NPX / NPMX Paket Kurulumu & CLI"
         language="bash"
         solidPrinciple="SRP"
-        description="Geliştirme sunucusunu veya 22 senaryoluk tam otomasyon test paketini başlatın."
-        code={`# Bağımlılıkları yükleyin
-npm install
+        description="Paketi npm, pnpm, yarn veya bun ile kurun ya da npx filemangl CLI ile hazır bileşen üretin."
+        code={`# 1. Mevcut React projenize FileManGL paketini kurun
+npm install filemangl
+# veya: pnpm add filemangl | yarn add filemangl | bun add filemangl
 
-# Canlı geliştirme sunucusunu başlatın (/demo, /documentation, /configurator)
-npm run dev
+# 2. Hazır <FileManGLWorkspace /> bileşenini otomatik oluşturun (NPX / NPMX CLI)
+npx filemangl init
 
-# Tam teşekküllü Vitest + React Testing Library otomasyon testlerini çalıştırın
-npm test`}
+# 3. Sıfırdan Vite + React + TypeScript + FileManGL başlangıç projesi kurun
+npx filemangl create my-cloud-drive`}
       />
 
       <HighlightedCodeBlock
@@ -92,7 +93,8 @@ import {
   DEFAULT_FILE_MANAGER_CONFIG,
   IFileManagerConfig,
   I18nProvider,
-} from './core';
+} from 'filemangl';
+import 'filemangl/style.css';
 
 export function MyWorkspaceExplorer() {
   const [config, setConfig] = useState<IFileManagerConfig>({

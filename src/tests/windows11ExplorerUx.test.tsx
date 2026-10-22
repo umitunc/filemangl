@@ -201,9 +201,9 @@ describe('Windows 11 File Explorer UX & UI Automation Suite', () => {
     const restoreBtn = screen.getByTitle('Geri Yükle');
     fireEvent.click(restoreBtn);
 
-    // Navigate back to Root Volume via Breadcrumb 'Bu bilgisayar'
-    const thisPcBreadcrumb = screen.getAllByText('Bu bilgisayar')[0];
-    fireEvent.click(thisPcBreadcrumb);
+    // Navigate back to Root Volume via Breadcrumb / Sidebar 'Ana Disk (Root)'
+    const rootBreadcrumb = screen.getAllByText('Ana Disk (Root)')[0];
+    fireEvent.click(rootBreadcrumb);
     expect((await screen.findAllByText(/Architecture_Guide_kopya_bundle/i)).length).toBeGreaterThan(0);
 
     // Test '+2.5K' Stress Test Fake File generator from the toolbar

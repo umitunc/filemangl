@@ -1,6 +1,6 @@
 import React, { useId } from 'react';
 
-interface FileManGLLogoProps {
+export interface FileManGLLogoProps {
   size?: number;
   className?: string;
   withGlow?: boolean;

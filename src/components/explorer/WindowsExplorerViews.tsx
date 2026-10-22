@@ -43,7 +43,77 @@ interface WindowsExplorerViewsProps {
   onCancelRename: () => void;
   onSortChange: (field: SortField) => void;
   onDropNodesIntoFolder: (targetFolderId: string, draggedIds: string[]) => void;
-  onExternalFilesDropped?: (files: FileList, targetFolderId?: string | null) => void;
+  onExternalFilesDropped?: (files: FileList | File[], targetFolderId?: string | null) => void;
+}
+
+/**
+ * Recursively extracts files from dropped OS folders (via webkitGetAsEntry) or standard FileList
+ */
+async function extractDroppedFilesAndFolders(dataTransfer: DataTransfer): Promise<File[]> {
+  const items = dataTransfer.items;
+  if (items && items.length > 0) {
+    const entries: any[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i] as any;
+      if (typeof item.webkitGetAsEntry === 'function') {
+        const entry = item.webkitGetAsEntry();
+        if (entry) entries.push(entry);
+      }
+    }
+
+    if (entries.some((e) => e.isDirectory)) {
+      const collected: File[] = [];
+      const traverse = async (entry: any, pathPrefix: string): Promise<void> => {
+        if (entry.isFile) {
+          await new Promise<void>((resolve) => {
+            entry.file(
+              (file: File) => {
+                const relPath = pathPrefix ? `${pathPrefix}/${file.name}` : file.name;
+                try {
+                  Object.defineProperty(file, 'webkitRelativePath', {
+                    value: relPath,
+                    configurable: true,
+                  });
+                } catch {
+                  (file as any).relativePath = relPath;
+                }
+                collected.push(file);
+                resolve();
+              },
+              () => resolve()
+            );
+          });
+        } else if (entry.isDirectory) {
+          const dirReader = entry.createReader();
+          const readAllEntries = async (): Promise<any[]> => {
+            const all: any[] = [];
+            let batch: any[] = [];
+            do {
+              batch = await new Promise<any[]>((resolve) => {
+                dirReader.readEntries(
+                  (res: any[]) => resolve(res || []),
+                  () => resolve([])
+                );
+              });
+              all.push(...batch);
+            } while (batch.length > 0);
+            return all;
+          };
+          const childEntries = await readAllEntries();
+          const nextPrefix = pathPrefix ? `${pathPrefix}/${entry.name}` : entry.name;
+          for (const child of childEntries) {
+            await traverse(child, nextPrefix);
+          }
+        }
+      };
+
+      for (const entry of entries) {
+        await traverse(entry, '');
+      }
+      if (collected.length > 0) return collected;
+    }
+  }
+  return Array.from(dataTransfer.files || []);
 }
 
 /**
@@ -574,10 +644,11 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
             e.dataTransfer.dropEffect = 'copy';
           }
         }}
-        onDrop={(e) => {
+        onDrop={async (e) => {
           if (e.dataTransfer?.files && e.dataTransfer.files.length > 0 && onExternalFilesDropped) {
             e.preventDefault();
-            onExternalFilesDropped(e.dataTransfer.files);
+            const extracted = await extractDroppedFilesAndFolders(e.dataTransfer);
+            onExternalFilesDropped(extracted);
           }
         }}
         onContextMenu={(e) => {
@@ -906,7 +977,7 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
           }
         }}
         onDragLeave={() => setDragOverFolderId(null)}
-        onDrop={(e) => {
+        onDrop={async (e) => {
           setDragOverFolderId(null);
           if (node.type === 'folder' && config.enableDragAndDrop) {
             e.preventDefault();
@@ -916,7 +987,8 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
               e.dataTransfer.files.length > 0 &&
               onExternalFilesDropped
             ) {
-              onExternalFilesDropped(e.dataTransfer.files, node.id);
+              const extracted = await extractDroppedFilesAndFolders(e.dataTransfer);
+              onExternalFilesDropped(extracted, node.id);
               return;
             }
             const raw =
@@ -1088,10 +1160,11 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
             e.dataTransfer.dropEffect = 'copy';
           }
         }}
-        onDrop={(e) => {
+        onDrop={async (e) => {
           if (e.dataTransfer?.files && e.dataTransfer.files.length > 0 && onExternalFilesDropped) {
             e.preventDefault();
-            onExternalFilesDropped(e.dataTransfer.files);
+            const extracted = await extractDroppedFilesAndFolders(e.dataTransfer);
+            onExternalFilesDropped(extracted);
           }
         }}
         onContextMenu={(e) => {
@@ -1172,6 +1245,19 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
       ref={containerRef}
       onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
       onMouseDown={handleViewportMouseDown}
+      onDragOver={(e) => {
+        if (e.dataTransfer?.types?.includes('Files')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        }
+      }}
+      onDrop={async (e) => {
+        if (e.dataTransfer?.files && e.dataTransfer.files.length > 0 && onExternalFilesDropped) {
+          e.preventDefault();
+          const extracted = await extractDroppedFilesAndFolders(e.dataTransfer);
+          onExternalFilesDropped(extracted);
+        }
+      }}
       onContextMenu={(e) => {
         const targetEl = e.target as HTMLElement;
         if (!targetEl.closest('[data-node-id]')) {

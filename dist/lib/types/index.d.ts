@@ -1,0 +1,23 @@
+import './index.css';
+export { FileManGL, ensureMaterialSymbolsLoaded, type FileManGLProps, } from './components/explorer/FileManGL';
+export { UploadQueueTray, type UploadQueueItem, type UploadQueueStatus, type UploadQueueTrayProps, } from './components/explorer/UploadQueueTray';
+export { WindowsExplorerViews, renderCategoryIcon, } from './components/explorer/WindowsExplorerViews';
+export { FileManGLLogo, type FileManGLLogoProps, } from './components/brand/FileManGLLogo';
+export { LanguageDropdown, type LanguageDropdownProps, } from './components/brand/LanguageDropdown';
+export { ConfigPlaygroundPanel } from './components/configurator/ConfigPlaygroundPanel';
+export { DocumentationPortal } from './components/docs/DocumentationPortal';
+export { SecurityPermissionsModal } from './components/modals/SecurityPermissionsModal';
+export { BatchRenameModal, CodeEditorModal, ConflictResolutionModal, MediaPlayerModal, ShareLinkModal, } from './components/modals/ExplorerModals';
+export { WebGLSpatialViewport } from './core/webgl/WebGLSpatialViewport';
+export { WebGLDiskMapViewport } from './core/webgl/WebGLDiskMapViewport';
+export { WebGLImageShaderModal } from './core/webgl/WebGLImageShaderModal';
+export { DEFAULT_FILE_MANAGER_CONFIG, CONFIG_PRESETS, DEMO_USERS, } from './core/config/defaultConfig';
+export { VfsLocalStorageDriver, VfsMemoryDriver, RestConnectorDriver, } from './core/drivers/FileSystemDrivers';
+export { getInitialSeedNodes, createDefaultAcl, generateStressTestNodes, } from './core/drivers/seedFileSystem';
+export { PermissionEngine, ALL_PERMISSION_ACTIONS, } from './core/services/PermissionEngine';
+export { QuotaEngine, type CategoryBreakdownItem, } from './core/services/QuotaEngine';
+export { ThumbnailCacheService, type CachedThumbnailEntry, type ThumbnailCacheStats, } from './core/services/ThumbnailCacheService';
+export { ZipArchiveService, type ZipEntryItem, type ZipBuildResult, } from './core/services/ZipArchiveService';
+export { I18nProvider, useI18n, DICTIONARIES, LOCALE_LIST, type TranslationDictionary, type LocaleMeta, type I18nContextValue, } from './core/i18n/I18nProvider';
+export type { UserRole, UserIdentity, PermissionAction, AclRule, PosixTriad, PosixPermissions, FolderQuotaPolicy, ShareLinkConfig, NodeSecurityMetadata, FileCategory, FileNode, ExplorerViewMode, SortField, SortDirection, EffectivePermissionMatrix, QuotaCheckResult, ConflictItem, ConflictResolutionStrategy, ClipboardState, AuditLogEntry, IFileSystemDriver, SupportedLocale, IFileManagerConfig, } from './core/contracts/types';
+//# sourceMappingURL=index.d.ts.map

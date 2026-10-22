@@ -175,11 +175,69 @@ FileManGL includes an open HTTP JSON wire protocol for remote backend integratio
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### 📦 Install via NPM / PNPM / Yarn / Bun / NPX
+
+```bash
+# Install into an existing React (>=18) project
+npm install filemangl
+# or
+pnpm add filemangl
+yarn add filemangl
+bun add filemangl
+```
+
+### ⚡ CLI Quick Scaffold (`npx filemangl` / `npmx filemangl`)
+
+```bash
+# Generate a ready-to-use <FileManGLWorkspace /> component in your project
+npx filemangl init
+
+# Scaffold a brand-new Vite + React + TypeScript + FileManGL starter app
+npx filemangl create my-cloud-drive
+
+# Run environment & package diagnostics
+npx filemangl doctor
+```
+
+### 🧩 Usage in React
+
+```tsx
+import React, { useState } from 'react';
+import {
+  FileManGL,
+  I18nProvider,
+  DEFAULT_FILE_MANAGER_CONFIG,
+  type IFileManagerConfig,
+} from 'filemangl';
+import 'filemangl/style.css';
+
+export default function App() {
+  const [config, setConfig] = useState<IFileManagerConfig>({
+    ...DEFAULT_FILE_MANAGER_CONFIG,
+    locale: 'tr', // 'tr' | 'en' | 'de' | 'ru'
+    theme: 'dark', // 'dark' | 'light'
+    driverType: 'vfs_localstorage',
+  });
+
+  return (
+    <I18nProvider
+      locale={config.locale}
+      onLocaleChange={(locale) => setConfig((prev) => ({ ...prev, locale }))}
+    >
+      <FileManGL
+        config={config}
+        onConfigChange={(patch) => setConfig((prev) => ({ ...prev, ...patch }))}
+      />
+    </I18nProvider>
+  );
+}
+```
+
+### Prerequisites (Local Repository Development)
 - **Node.js**: `v18.0.0` or higher (tested on Node v20 & v24)
 - **Package Manager**: `npm`, `pnpm`, or `yarn`
 
-### Installation
+### Clone & Local Development
 
 ```bash
 # Clone the repository

@@ -27,6 +27,8 @@ import {
 import { PermissionEngine } from '../../core/services/PermissionEngine';
 import { QuotaEngine } from '../../core/services/QuotaEngine';
 import { ThumbnailCacheService } from '../../core/services/ThumbnailCacheService';
+import { ZipArchiveService } from '../../core/services/ZipArchiveService';
+import { UploadQueueItem, UploadQueueTray } from './UploadQueueTray';
 import { WebGLSpatialViewport } from '../../core/webgl/WebGLSpatialViewport';
 import { WebGLDiskMapViewport } from '../../core/webgl/WebGLDiskMapViewport';
 import { WebGLImageShaderModal } from '../../core/webgl/WebGLImageShaderModal';
@@ -77,6 +79,22 @@ interface ExplorerTab {
   historyIndex: number;
 }
 
+const MATERIAL_SYMBOLS_HREF =
+  'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap';
+
+let materialSymbolsInjected = false;
+
+export function ensureMaterialSymbolsLoaded(): void {
+  if (materialSymbolsInjected || typeof document === 'undefined') return;
+  materialSymbolsInjected = true;
+  const existing = document.querySelector('link[href*="Material+Symbols+Outlined"]');
+  if (existing) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = MATERIAL_SYMBOLS_HREF;
+  document.head.appendChild(link);
+}
+
 export interface FileManGLProps {
   config: IFileManagerConfig;
   onConfigChange?: (patch: Partial<IFileManagerConfig>) => void;
@@ -90,6 +108,10 @@ export const FileManGL: React.FC<FileManGLProps> = ({
   isFullscreen,
   onToggleFullscreen,
 }) => {
+  useEffect(() => {
+    ensureMaterialSymbolsLoaded();
+  }, []);
+
   const { dict } = useI18n();
 
   // Active Driver (Dependency Inversion Principle)
@@ -365,15 +387,10 @@ export const FileManGL: React.FC<FileManGLProps> = ({
   const [shareModalNode, setShareModalNode] = useState<FileNode | null>(null);
   const [showBatchRename, setShowBatchRename] = useState<boolean>(false);
   const [pendingConflicts, setPendingConflicts] = useState<ConflictItem[] | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<{
-    fileName: string;
-    currentIdx: number;
-    totalFiles: number;
-    percent: number;
-    stage: string;
-    bytesTransferred: number;
-    totalBytes: number;
-  } | null>(null);
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
+  const [showUploadTray, setShowUploadTray] = useState<boolean>(false);
+  const [isUploadTrayMinimized, setIsUploadTrayMinimized] = useState<boolean>(false);
+  const cancelledUploadIdsRef = useRef<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -389,6 +406,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setViewMode(config.defaultViewMode);
@@ -739,8 +757,77 @@ export const FileManGL: React.FC<FileManGLProps> = ({
     notify('success', 'Yeni Klasör Oluşturuldu', `"${candidate}" dizine eklendi.`, candidate);
   };
 
+  // Direct Browser ZIP Download for a Folder or Multi-Selection (Marquee Selection Rectangle)
+  const handleDownloadAsZip = useCallback(
+    async (customTargets?: FileNode[]) => {
+      const targets =
+        customTargets && customTargets.length > 0
+          ? customTargets
+          : selectedNodes.length > 0
+          ? selectedNodes
+          : currentFolderNode
+          ? [currentFolderNode]
+          : [];
+
+      if (targets.length === 0) return;
+
+      const permittedTargets: FileNode[] = [];
+      const blockedNames: string[] = [];
+
+      for (const t of targets) {
+        const perm = PermissionEngine.evaluateNodePermissions(
+          t,
+          currentUser,
+          allNodes,
+          config
+        );
+        if (!perm.allowed.download || !perm.allowed.read) {
+          blockedNames.push(t.name);
+          continue;
+        }
+        permittedTargets.push(t);
+      }
+
+      if (permittedTargets.length === 0) {
+        notify(
+          'error',
+          'ZIP İndirme Engellendi (EACCES)',
+          `"${blockedNames[0] || 'Seçim'}" öğesini indirme yetkiniz bulunmuyor.`
+        );
+        return;
+      }
+
+      try {
+        const zipResult = await ZipArchiveService.buildZipArchive(
+          permittedTargets,
+          allNodes
+        );
+        ZipArchiveService.triggerBrowserDownload(zipResult.blob, zipResult.fileName);
+
+        notify(
+          blockedNames.length > 0 ? 'warning' : 'success',
+          'ZIP Paketi İndiriliyor',
+          `"${zipResult.fileName}" (${zipResult.fileCount} dosya, ${
+            zipResult.folderCount
+          } klasör • ${QuotaEngine.formatBytes(
+            zipResult.totalBytes
+          )}) bilgisayarınıza indiriliyor.`,
+          zipResult.fileName
+        );
+      } catch {
+        notify('error', 'ZIP Paketleme Hatası', 'ZIP arşivi oluşturulurken bir hata oluştu.');
+      }
+    },
+    [allNodes, config, currentFolderNode, currentUser, notify, selectedNodes]
+  );
+
   const handleDownloadNode = useCallback(
     (node: FileNode) => {
+      if (node.type === 'folder') {
+        void handleDownloadAsZip([node]);
+        return;
+      }
+
       const perm = PermissionEngine.evaluateNodePermissions(
         node,
         currentUser,
@@ -788,7 +875,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
         node.name
       );
     },
-    [allNodes, config, currentUser, notify]
+    [allNodes, config, currentUser, handleDownloadAsZip, notify]
   );
 
   const handleCreateFile = (
@@ -904,12 +991,13 @@ export const FileManGL: React.FC<FileManGLProps> = ({
     );
   };
 
-  // Real Browser File Upload into Managed Disk Volume (Input + Drag & Drop)
+  // Real Browser File & Folder Upload with 0-100% Streaming Progress & Google Drive Upload Queue
   const processExternalFilesUpload = async (
-    files: FileList,
+    files: FileList | File[],
     targetFolderId: string | null = currentFolderId
   ) => {
-    if (!files || files.length === 0) return;
+    const fileList = Array.from(files || []);
+    if (fileList.length === 0) return;
 
     const targetFolderNode = targetFolderId
       ? allNodes.find((n) => n.id === targetFolderId) || null
@@ -931,6 +1019,48 @@ export const FileManGL: React.FC<FileManGLProps> = ({
       );
       return;
     }
+
+    const isTestEnv = Boolean(
+      (globalThis as { process?: { env?: Record<string, string> } }).process?.env?.VITEST
+    );
+    const stepPause = (ms: number) =>
+      isTestEnv ? Promise.resolve() : new Promise((r) => setTimeout(r, ms));
+
+    const classifyFileCategory = (file: File): { ext: string; cat: FileCategory } => {
+      const extMatch = file.name.match(/(\.[a-zA-Z0-9]+)$/);
+      const ext = extMatch ? extMatch[1].toLowerCase() : '';
+      let cat: FileCategory = 'document';
+      if (['.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif', '.bmp', '.ico'].includes(ext))
+        cat = 'image';
+      else if (
+        [
+          '.ts',
+          '.tsx',
+          '.js',
+          '.jsx',
+          '.php',
+          '.py',
+          '.glsl',
+          '.css',
+          '.html',
+          '.c',
+          '.cpp',
+          '.rs',
+          '.go',
+        ].includes(ext)
+      )
+        cat = 'code';
+      else if (['.zip', '.rar', '.tar', '.gz', '.7z'].includes(ext)) cat = 'archive';
+      else if (['.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v'].includes(ext))
+        cat = 'video';
+      else if (['.mp3', '.wav', '.ogg', '.flac', '.m4a'].includes(ext)) cat = 'audio';
+      else if (['.json', '.sql', '.csv', '.xml', '.yaml', '.yml'].includes(ext))
+        cat = 'data';
+      else if (file.type.startsWith('video/')) cat = 'video';
+      else if (file.type.startsWith('image/')) cat = 'image';
+      else if (file.type.startsWith('audio/')) cat = 'audio';
+      return { ext, cat };
+    };
 
     const computeRealSha256 = async (file: File): Promise<string> => {
       try {
@@ -1035,85 +1165,207 @@ export const FileManGL: React.FC<FileManGLProps> = ({
         video.src = blobUrl;
       });
 
-    const fileList = Array.from(files);
-    const added: FileNode[] = [];
     let runningNodes = [...allNodes];
+    const createdRootFolderIds = new Set<string>();
+    const newlyExpandedIds: string[] = [];
 
-    for (let i = 0; i < fileList.length; i++) {
-      const file = fileList[i];
+    // Helper to ensure nested folder path exists when uploading a Folder (webkitRelativePath)
+    const ensureRelativeFolderPath = (
+      folderSegments: string[],
+      baseParentId: string | null
+    ): {
+      leafParentId: string | null;
+      leafFolderLabel: string;
+      rootFolderId?: string;
+    } => {
+      let cursorParentId = baseParentId;
+      let cursorLabel = targetFolderNode ? targetFolderNode.name : dict.explorer.rootVolume;
+      let rootFolderId: string | undefined;
+
+      for (let depth = 0; depth < folderSegments.length; depth++) {
+        const segName = folderSegments[depth].trim();
+        if (!segName) continue;
+
+        let existingFolder = runningNodes.find(
+          (n) =>
+            !n.trashed &&
+            n.type === 'folder' &&
+            n.parentId === cursorParentId &&
+            n.name.toLowerCase() === segName.toLowerCase()
+        );
+
+        if (!existingFolder) {
+          const now = new Date().toISOString();
+          existingFolder = {
+            id: `fld_up_${Date.now()}_${depth}_${Math.random().toString(36).slice(2, 6)}`,
+            parentId: cursorParentId,
+            name: segName,
+            type: 'folder',
+            category: 'folder',
+            extension: '',
+            mimeType: 'inode/directory',
+            size: 0,
+            createdAt: now,
+            updatedAt: now,
+            starred: false,
+            tags: ['UploadedFolder'],
+            colorTag: 'amber',
+            trashed: false,
+            isUserUploaded: true,
+            checksumSha256: Date.now().toString(16).padStart(64, 'd'),
+            security: {
+              ownerId: currentUser.id,
+              ownerName: currentUser.name,
+              groupName: currentUser.group,
+              inheritFromParent: true,
+              locked: false,
+              posix: PermissionEngine.buildPosixFromOctal('0755'),
+              acl: createDefaultAcl('open'),
+            },
+          };
+          runningNodes = [existingFolder, ...runningNodes];
+        }
+
+        if (depth === 0) {
+          rootFolderId = existingFolder.id;
+          createdRootFolderIds.add(existingFolder.id);
+        }
+        newlyExpandedIds.push(existingFolder.id);
+        cursorParentId = existingFolder.id;
+        cursorLabel = existingFolder.name;
+      }
+
+      return {
+        leafParentId: cursorParentId,
+        leafFolderLabel: cursorLabel,
+        rootFolderId,
+      };
+    };
+
+    // 1. Pre-build folder hierarchy & enqueue all files at 0% into Google Drive Upload Queue
+    const preparedBatch = fileList.map((file, idx) => {
+      const rawRel = (
+        (file as File & { relativePath?: string }).relativePath ||
+        file.webkitRelativePath ||
+        file.name
+      ).replace(/\\/g, '/');
+      const parts = rawRel.split('/').filter(Boolean);
+      const folderParts = parts.length > 1 ? parts.slice(0, -1) : [];
+      const rootFolderName = folderParts.length > 0 ? folderParts[0] : undefined;
+
+      const ensured =
+        folderParts.length > 0
+          ? ensureRelativeFolderPath(folderParts, targetFolderId)
+          : {
+              leafParentId: targetFolderId,
+              leafFolderLabel: targetFolderNode
+                ? targetFolderNode.name
+                : dict.explorer.rootVolume,
+              rootFolderId: undefined,
+            };
+
+      const { ext, cat } = classifyFileCategory(file);
+      const queueId = `uq_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`;
+
+      const queueItem: UploadQueueItem = {
+        id: queueId,
+        fileName: file.name,
+        relativePath: rawRel,
+        rootUploadedFolderName: rootFolderName,
+        rootUploadedFolderId: ensured.rootFolderId,
+        targetFolderId: ensured.leafParentId,
+        targetFolderLabel: ensured.leafFolderLabel,
+        category: cat,
+        totalBytes: file.size,
+        bytesTransferred: 0,
+        percent: 0,
+        status: 'queued',
+        stage: '%0 • Kuyrukta bekliyor...',
+      };
+
+      return {
+        file,
+        ext,
+        cat,
+        queueId,
+        queueItem,
+        leafParentId: ensured.leafParentId,
+      };
+    });
+
+    if (newlyExpandedIds.length > 0) {
+      setExpandedFolders((prev) => {
+        const next = new Set(prev);
+        newlyExpandedIds.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+
+    setShowUploadTray(true);
+    setIsUploadTrayMinimized(false);
+    setUploadQueue((prev) => [...preparedBatch.map((b) => b.queueItem), ...prev]);
+
+    const updateQueueItem = (id: string, patch: Partial<UploadQueueItem>) => {
+      setUploadQueue((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...patch } : item))
+      );
+    };
+
+    const addedFiles: FileNode[] = [];
+
+    // 2. Process each file in the queue from 0% -> 20% -> 45% -> 75% -> 95% -> 100%
+    for (let i = 0; i < preparedBatch.length; i++) {
+      const { file, ext, cat, queueId, leafParentId } = preparedBatch[i];
       const realBytes = file.size;
 
+      if (cancelledUploadIdsRef.current.has(queueId)) {
+        updateQueueItem(queueId, {
+          status: 'cancelled',
+          stage: 'İptal edildi',
+        });
+        continue;
+      }
+
       const check = QuotaEngine.validateWriteOperation(
-        targetFolderId,
+        leafParentId,
         file.name,
         realBytes,
         runningNodes,
         config
       );
       if (!check.allowed) {
+        updateQueueItem(queueId, {
+          status: 'error',
+          stage: check.reason || 'Kota veya uzantı engeli',
+          errorMessage: check.reason,
+        });
         notify('error', 'Yükleme Engellendi', check.reason || file.name, file.name);
         continue;
       }
 
-      setUploadProgress({
-        fileName: file.name,
-        currentIdx: i + 1,
-        totalFiles: fileList.length,
+      // Stage 1: 0% -> 20% Stream Start
+      updateQueueItem(queueId, {
+        status: 'uploading',
         percent: 20,
-        stage: 'Binary Stream & SHA-256 Hesaplanıyor...',
-        bytesTransferred: Math.round(realBytes * 0.25),
-        totalBytes: realBytes,
+        bytesTransferred: Math.round(realBytes * 0.2),
+        stage: 'Binary Stream Okunuyor...',
       });
+      await stepPause(20);
 
-      const extMatch = file.name.match(/(\.[a-zA-Z0-9]+)$/);
-      const ext = extMatch ? extMatch[1].toLowerCase() : '';
-      let cat: FileCategory = 'document';
-      if (['.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif', '.bmp', '.ico'].includes(ext))
-        cat = 'image';
-      else if (
-        [
-          '.ts',
-          '.tsx',
-          '.js',
-          '.jsx',
-          '.php',
-          '.py',
-          '.glsl',
-          '.css',
-          '.html',
-          '.c',
-          '.cpp',
-          '.rs',
-          '.go',
-        ].includes(ext)
-      )
-        cat = 'code';
-      else if (['.zip', '.rar', '.tar', '.gz', '.7z'].includes(ext)) cat = 'archive';
-      else if (['.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v'].includes(ext))
-        cat = 'video';
-      else if (['.mp3', '.wav', '.ogg', '.flac', '.m4a'].includes(ext)) cat = 'audio';
-      else if (['.json', '.sql', '.csv', '.xml', '.yaml', '.yml'].includes(ext))
-        cat = 'data';
-      else if (file.type.startsWith('video/')) cat = 'video';
-      else if (file.type.startsWith('image/')) cat = 'image';
-      else if (file.type.startsWith('audio/')) cat = 'audio';
+      if (cancelledUploadIdsRef.current.has(queueId)) {
+        updateQueueItem(queueId, { status: 'cancelled', stage: 'İptal edildi' });
+        continue;
+      }
 
+      // Stage 2: 45% SHA-256 Digest
       const sha256 = await computeRealSha256(file);
-
-      setUploadProgress({
-        fileName: file.name,
-        currentIdx: i + 1,
-        totalFiles: fileList.length,
-        percent: 65,
-        stage:
-          cat === 'video'
-            ? 'Video Kodek & Poster Karesi Çıkarılıyor...'
-            : cat === 'image'
-            ? 'Görsel Çözünürlük Analizi Yapılıyor...'
-            : 'VFS Bloklarına Yazılıyor...',
-        bytesTransferred: Math.round(realBytes * 0.7),
-        totalBytes: realBytes,
+      updateQueueItem(queueId, {
+        status: 'uploading',
+        percent: 45,
+        bytesTransferred: Math.round(realBytes * 0.45),
+        stage: 'SHA-256 Özeti Doğrulandı...',
       });
+      await stepPause(20);
 
       let blobUrl: string | undefined;
       try {
@@ -1136,6 +1388,20 @@ export const FileManGL: React.FC<FileManGLProps> = ({
           textContent = undefined;
         }
       }
+
+      // Stage 3: 75% Media / Thumbnail & IndexedDB L2 Persistence
+      updateQueueItem(queueId, {
+        status: 'uploading',
+        percent: 75,
+        bytesTransferred: Math.round(realBytes * 0.75),
+        stage:
+          cat === 'video'
+            ? 'Video Kodek & Poster Karesi Çıkarılıyor...'
+            : cat === 'image'
+            ? 'WebP Thumbnail & Palet Önbellekleniyor...'
+            : 'IndexedDB Bloklarına Yazılıyor...',
+      });
+      await stepPause(20);
 
       let thumbnailUrl: string | undefined;
       let durationSec: number | undefined;
@@ -1192,20 +1458,19 @@ export const FileManGL: React.FC<FileManGLProps> = ({
         await ThumbnailCacheService.persistBinaryBlob(sha256, file);
       }
 
-      setUploadProgress({
-        fileName: file.name,
-        currentIdx: i + 1,
-        totalFiles: fileList.length,
-        percent: 100,
-        stage: 'Thumbnail Önbellek & VFS Kaydı Tamamlandı',
-        bytesTransferred: realBytes,
-        totalBytes: realBytes,
+      // Stage 4: 95% VFS Node Commit
+      updateQueueItem(queueId, {
+        status: 'uploading',
+        percent: 95,
+        bytesTransferred: Math.round(realBytes * 0.95),
+        stage: 'VFS Dizin Ağacına Kaydediliyor...',
       });
+      await stepPause(15);
 
       const now = new Date().toISOString();
       const node: FileNode = {
-        id: `up_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        parentId: targetFolderId,
+        id: `up_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 7)}`,
+        parentId: leafParentId,
         name: file.name,
         type: cat === 'archive' ? 'archive' : 'file',
         category: cat,
@@ -1253,25 +1518,41 @@ export const FileManGL: React.FC<FileManGLProps> = ({
         },
       };
 
-      added.push(node);
+      addedFiles.push(node);
       runningNodes = [node, ...runningNodes];
+
+      // Stage 5: 100% Completed
+      updateQueueItem(queueId, {
+        status: 'completed',
+        percent: 100,
+        bytesTransferred: realBytes,
+        stage: 'Tamamlandı (%100)',
+        createdNodeId: node.id,
+      });
     }
 
-    setUploadProgress(null);
-
-    if (added.length > 0) {
+    if (addedFiles.length > 0 || createdRootFolderIds.size > 0) {
       commitNodesUpdate(runningNodes);
-      setSelectedIds(new Set(added.map((a) => a.id)));
-      const first = added[0];
+      if (createdRootFolderIds.size > 0) {
+        setSelectedIds(new Set(Array.from(createdRootFolderIds)));
+      } else {
+        setSelectedIds(new Set(addedFiles.map((a) => a.id)));
+      }
+
+      const first = addedFiles[0];
       notify(
         'success',
         'Gerçek Dosya Yükleme Tamamlandı',
-        added.length === 1
+        createdRootFolderIds.size > 0
+          ? `Klasör yapısı ve ${addedFiles.length} dosya (${QuotaEngine.formatBytes(
+              addedFiles.reduce((acc, n) => acc + n.size, 0)
+            )}) başarıyla diske aktarıldı.`
+          : addedFiles.length === 1 && first
           ? `"${first.name}" (${QuotaEngine.formatBytes(first.size)} • SHA-256: ${first.checksumSha256.slice(0, 10)}…) başarıyla aktarıldı.`
-          : `${added.length} dosya (${QuotaEngine.formatBytes(
-              added.reduce((acc, n) => acc + n.size, 0)
+          : `${addedFiles.length} dosya (${QuotaEngine.formatBytes(
+              addedFiles.reduce((acc, n) => acc + n.size, 0)
             )}) başarıyla diske aktarıldı.`,
-        first.name
+        first?.name || 'Klasör'
       );
     }
   };
@@ -1282,6 +1563,34 @@ export const FileManGL: React.FC<FileManGLProps> = ({
     await processExternalFilesUpload(files, currentFolderId);
     e.target.value = '';
   };
+
+  const handleExternalFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await processExternalFilesUpload(files, currentFolderId);
+    e.target.value = '';
+  };
+
+  const handleCancelUploadItem = useCallback((queueId: string) => {
+    cancelledUploadIdsRef.current.add(queueId);
+    setUploadQueue((prev) =>
+      prev.map((item) =>
+        item.id === queueId ? { ...item, status: 'cancelled', stage: 'İptal edildi' } : item
+      )
+    );
+  }, []);
+
+  const handleCancelAllUploads = useCallback(() => {
+    setUploadQueue((prev) =>
+      prev.map((item) => {
+        if (item.status === 'uploading' || item.status === 'queued') {
+          cancelledUploadIdsRef.current.add(item.id);
+          return { ...item, status: 'cancelled', stage: 'İptal edildi' };
+        }
+        return item;
+      })
+    );
+  }, []);
 
   // Rename Single Node
   const handleCommitRename = (id: string, newNameInput: string) => {
@@ -2150,13 +2459,23 @@ export const FileManGL: React.FC<FileManGLProps> = ({
           : 'rounded-2xl h-[680px] sm:h-[780px]'
       }`}
     >
-      {/* Hidden Native File Input for Real File Uploads */}
+      {/* Hidden Native File & Folder Inputs for Real Uploads */}
       <input
         ref={fileInputRef}
         type="file"
         multiple
         onChange={handleExternalFileUpload}
         className="hidden"
+        data-testid="file-upload-input"
+      />
+      <input
+        ref={folderInputRef}
+        type="file"
+        multiple
+        {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
+        onChange={handleExternalFolderUpload}
+        className="hidden"
+        data-testid="folder-upload-input"
       />
 
       {/* ====================================================================
@@ -2399,14 +2718,15 @@ export const FileManGL: React.FC<FileManGLProps> = ({
               <button
                 onClick={() => navigateActiveTab(null, 'volume')}
                 className="flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-slate-800 text-slate-200 font-medium shrink-0 transition"
+                title={dict.explorer.rootVolume}
               >
                 <span
                   className="material-symbols-outlined text-blue-400"
                   style={{ fontSize: '16px' }}
                 >
-                  computer
+                  home
                 </span>
-                <span className="hidden xs:inline sm:inline">Bu bilgisayar</span>
+                <span className="hidden xs:inline sm:inline">{dict.explorer.rootVolume}</span>
               </button>
 
               <span
@@ -2656,9 +2976,47 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                     </span>
                     <span>Bilgisayardan Dosya Yükle...</span>
                   </button>
+                  <button
+                    onClick={() => {
+                      folderInputRef.current?.click();
+                      setOpenToolbarMenu(null);
+                    }}
+                    className="w-full px-3.5 py-2 hover:bg-slate-800 flex items-center gap-2.5 text-amber-300"
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      style={{ fontSize: '18px' }}
+                    >
+                      drive_folder_upload
+                    </span>
+                    <span>Bilgisayardan Klasör Yükle...</span>
+                  </button>
                 </div>
               )}
             </div>
+
+            {/* Quick Upload File & Folder Buttons (Google Drive style) */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-2 py-1.5 rounded-md hover:bg-slate-800 text-cyan-300 text-xs font-medium flex items-center gap-1 transition"
+              title="Bilgisayardan Dosya Yükle (0-100% Akış)"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                upload_file
+              </span>
+              <span className="hidden md:inline">Dosya Yükle</span>
+            </button>
+
+            <button
+              onClick={() => folderInputRef.current?.click()}
+              className="px-2 py-1.5 rounded-md hover:bg-slate-800 text-amber-300 text-xs font-medium flex items-center gap-1 transition"
+              title="Bilgisayardan Klasör Yükle (Tüm Alt Dizinlerle)"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                drive_folder_upload
+              </span>
+              <span className="hidden md:inline">Klasör Yükle</span>
+            </button>
 
             <div className="h-5 w-px bg-slate-800 mx-1" />
 
@@ -2772,6 +3130,24 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                 </span>
               </button>
             )}
+
+            {/* Direct ZIP Download for Selected Folder or Marquee Selection */}
+            <button
+              disabled={selectedIds.size === 0 && !currentFolderNode}
+              onClick={() => void handleDownloadAsZip()}
+              className="px-2 h-8 rounded-md hover:bg-emerald-500/20 disabled:opacity-30 text-emerald-300 flex items-center justify-center gap-1 transition"
+              title="Seçili Klasörü veya Seçim Dörtgenini ZIP Olarak İndir (.zip)"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                archive
+              </span>
+              <span className="hidden xl:inline text-[11px] font-semibold">ZIP İndir</span>
+              {selectedIds.size > 0 && (
+                <span className="text-[10px] font-mono font-bold px-1 rounded bg-emerald-500/20 text-emerald-300">
+                  {selectedIds.size}
+                </span>
+              )}
+            </button>
 
             <button
               disabled={!primarySelectedNode}
@@ -3222,8 +3598,24 @@ export const FileManGL: React.FC<FileManGLProps> = ({
             </div>
           </div>
 
-          {/* Right Side of Command Bar: Quick Stress Test Pill + 'Ayrıntılar' Toggle */}
+          {/* Right Side of Command Bar: Upload Queue Pill + Quick Stress Test Pill + 'Ayrıntılar' Toggle */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {uploadQueue.length > 0 && (
+              <button
+                onClick={() => {
+                  setShowUploadTray((v) => !v);
+                  setIsUploadTrayMinimized(false);
+                }}
+                className="px-2 py-1 rounded-md bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 text-[11px] font-semibold flex items-center gap-1.5 transition"
+                title="Yükleme Kuyruğunu Göster/Gizle (Google Drive Transfer Paneli)"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>
+                  cloud_upload
+                </span>
+                <span>Kuyruk ({uploadQueue.length})</span>
+              </button>
+            )}
+
             {/* Compact Stress Test Quick Generator */}
             <div className="hidden xl:flex items-center gap-1 bg-slate-900/90 border border-slate-800 rounded-md px-1.5 py-0.5 text-[11px]">
               <button
@@ -3371,7 +3763,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                       >
                         home
                       </span>
-                      <span className="truncate">Giriş ({dict.explorer.rootVolume})</span>
+                      <span className="truncate">{dict.explorer.rootVolume}</span>
                     </span>
                     <span className="text-[10px] font-mono text-slate-400">
                       {allNodes.filter((n) => !n.trashed).length}
@@ -3483,17 +3875,60 @@ export const FileManGL: React.FC<FileManGLProps> = ({
 
                 <div className="border-t border-slate-800/80 my-1" />
 
-                {/* 'Bu bilgisayar' Hierarchical Directory Tree */}
+                {/* Localized Root Volume Hierarchical Directory Tree */}
                 <div>
-                  <div className="px-2 pb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-slate-300">
-                    <span
-                      className="material-symbols-outlined text-blue-400"
-                      style={{ fontSize: '16px' }}
-                    >
-                      computer
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigateActiveTab(null, 'volume');
+                      setMobileTreeOpen(false);
+                    }}
+                    onAuxClick={(e) => {
+                      if (e.button === 1) {
+                        e.preventDefault();
+                        handleOpenNewTab(null, 'volume');
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      if (!config.enableDragAndDrop) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDrop={(e) => {
+                      if (!config.enableDragAndDrop) return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      try {
+                        const raw =
+                          e.dataTransfer.getData('application/filemangl-nodes') ||
+                          e.dataTransfer.getData('text/plain');
+                        if (!raw) return;
+                        const ids: string[] = JSON.parse(raw);
+                        if (Array.isArray(ids) && ids.length > 0) {
+                          handleDropNodesIntoFolder(null, ids);
+                        }
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    className={`w-full px-2.5 py-1.5 mb-0.5 rounded-md flex items-center justify-between gap-1.5 text-xs font-semibold transition cursor-pointer ${
+                      navSection === 'volume' && currentFolderId === null
+                        ? 'bg-blue-600/20 text-blue-300'
+                        : 'text-slate-200 hover:bg-slate-800/70'
+                    }`}
+                    title={dict.explorer.rootVolume}
+                  >
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span
+                        className="material-symbols-outlined text-blue-400 shrink-0"
+                        style={{ fontSize: '17px' }}
+                      >
+                        hard_drive
+                      </span>
+                      <span className="truncate">{dict.explorer.rootVolume}</span>
                     </span>
-                    <span>Bu bilgisayar</span>
-                  </div>
+                    <span className="text-[10px] font-mono text-slate-400 shrink-0">/</span>
+                  </button>
                   {renderFolderTreeBranch(null, 0)}
                 </div>
               </div>
@@ -3620,6 +4055,44 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                   processExternalFilesUpload(files, targetFolderId ?? currentFolderId)
                 }
               />
+            )}
+
+            {/* Floating Action Bar for Folder Selection or Marquee Selection Rectangle (Seçim Dörtgeni) */}
+            {(selectedNodes.length > 1 ||
+              (selectedNodes.length === 1 && selectedNodes[0].type === 'folder')) && (
+              <div
+                data-testid="selection-zip-bar"
+                onClick={(e) => e.stopPropagation()}
+                className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 max-w-[calc(100%-24px)] px-3.5 py-2 rounded-full bg-slate-950/95 border border-emerald-500/50 shadow-2xl backdrop-blur-md flex items-center gap-2.5 text-xs select-none"
+              >
+                <span className="font-semibold text-white truncate">
+                  {selectedNodes.length === 1
+                    ? `📁 ${selectedNodes[0].name}`
+                    : `${selectedNodes.length} öğe seçildi`}
+                </span>
+                <button
+                  onClick={() => void handleDownloadAsZip(selectedNodes)}
+                  className="px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1.5 shrink-0 transition shadow"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>
+                    folder_zip
+                  </span>
+                  <span>
+                    {selectedNodes.length === 1
+                      ? 'Klasörü ZIP İndir (.zip)'
+                      : 'Seçimi ZIP İndir (.zip)'}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="w-6 h-6 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center shrink-0 transition"
+                  title="Seçimi Temizle"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
+                    close
+                  </span>
+                </button>
+              </div>
             )}
           </div>
 
@@ -3757,6 +4230,29 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                 </button>
               </div>
 
+              {selectedNodes.length > 1 && (
+                <div className="mx-4 mt-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-emerald-200">
+                      Çoklu Seçim ({selectedNodes.length} öğe)
+                    </span>
+                    <span className="font-mono text-[10px] text-emerald-300">
+                      {selectedNodes.filter((n) => n.type === 'folder').length} klasör •{' '}
+                      {selectedNodes.filter((n) => n.type !== 'folder').length} dosya
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => void handleDownloadAsZip(selectedNodes)}
+                    className="w-full px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition shadow"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                      folder_zip
+                    </span>
+                    <span>Seçilenleri ZIP İndir (.zip)</span>
+                  </button>
+                </div>
+              )}
+
               {primarySelectedNode && inspectorNodePerm ? (
                 <div className="p-4 space-y-4 flex-1">
                   {/* Large Windows 11 Preview Thumbnail / Live Media Player Box */}
@@ -3815,7 +4311,10 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                           className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform"
                         />
                         {primarySelectedNode.thumbnailMeta && (
-                          <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/80 border border-emerald-500/40 text-[9px] font-mono font-bold text-[#2FF58E]">
+                          <span
+                            style={{ color: '#2FF58E' }}
+                            className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/80 border border-emerald-500/40 text-[9px] font-mono font-bold text-[#2FF58E]"
+                          >
                             {primarySelectedNode.thumbnailMeta.fromCache
                               ? 'L1/IDB CACHE HIT'
                               : 'THUMB CACHED'}
@@ -3901,7 +4400,21 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                         <span>Paylaş</span>
                       </button>
 
-                      {primarySelectedNode.type !== 'folder' && (
+                      {primarySelectedNode.type === 'folder' ? (
+                        <button
+                          onClick={() => void handleDownloadAsZip([primarySelectedNode])}
+                          className="px-2.5 py-1.5 rounded-md bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-medium flex items-center gap-1 transition"
+                          title="Klasörü ve tüm alt dizinlerini ZIP olarak indir"
+                        >
+                          <span
+                            className="material-symbols-outlined"
+                            style={{ fontSize: '15px' }}
+                          >
+                            folder_zip
+                          </span>
+                          <span>ZIP İndir</span>
+                        </button>
+                      ) : (
                         <button
                           onClick={() => handleDownloadNode(primarySelectedNode)}
                           className="px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 text-xs font-medium flex items-center gap-1 transition"
@@ -4356,6 +4869,34 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                 </button>
               )}
 
+              <button
+                onClick={() => {
+                  const targets =
+                    selectedNodes.length > 1 && selectedIds.has(contextMenu.node!.id)
+                      ? selectedNodes
+                      : [contextMenu.node!];
+                  void handleDownloadAsZip(targets);
+                  setContextMenu(null);
+                }}
+                className="w-full px-3.5 py-2 hover:bg-emerald-600/20 flex items-center justify-between text-emerald-300"
+              >
+                <span className="flex items-center gap-2 font-medium">
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: '16px' }}
+                  >
+                    folder_zip
+                  </span>
+                  <span>
+                    {selectedNodes.length > 1 && selectedIds.has(contextMenu.node.id)
+                      ? `Seçimi ZIP Olarak İndir (${selectedNodes.length})`
+                      : contextMenu.node.type === 'folder'
+                      ? 'Klasörü ZIP Olarak İndir (.zip)'
+                      : 'ZIP Olarak İndir (.zip)'}
+                  </span>
+                </span>
+              </button>
+
               {contextMenu.node.type === 'folder' && (
                 <button
                   onClick={() => {
@@ -4522,6 +5063,50 @@ export const FileManGL: React.FC<FileManGLProps> = ({
               >
                 <FilePlus className="w-3.5 h-3.5 text-emerald-400" /> {dict.explorer.newFile}
               </button>
+              <button
+                onClick={() => {
+                  fileInputRef.current?.click();
+                  setContextMenu(null);
+                }}
+                className="w-full px-3.5 py-2 hover:bg-slate-800 flex items-center gap-2 text-cyan-300"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                  upload_file
+                </span>
+                <span>Bilgisayardan Dosya Yükle...</span>
+              </button>
+              <button
+                onClick={() => {
+                  folderInputRef.current?.click();
+                  setContextMenu(null);
+                }}
+                className="w-full px-3.5 py-2 hover:bg-slate-800 flex items-center gap-2 text-amber-300"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                  drive_folder_upload
+                </span>
+                <span>Bilgisayardan Klasör Yükle...</span>
+              </button>
+              {visibleNodes.length > 0 && (
+                <button
+                  onClick={() => {
+                    void handleDownloadAsZip(
+                      selectedNodes.length > 0 ? selectedNodes : visibleNodes
+                    );
+                    setContextMenu(null);
+                  }}
+                  className="w-full px-3.5 py-2 hover:bg-emerald-600/20 flex items-center gap-2 text-emerald-300"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                    folder_zip
+                  </span>
+                  <span>
+                    {selectedNodes.length > 0
+                      ? `Seçimi ZIP İndir (${selectedNodes.length} öğe)`
+                      : 'Bu Klasörü ZIP Olarak İndir (.zip)'}
+                  </span>
+                </button>
+              )}
               {clipboard.mode && (
                 <button
                   onClick={() => {
@@ -4690,32 +5275,27 @@ export const FileManGL: React.FC<FileManGLProps> = ({
         />
       )}
 
-      {/* LIVE REAL FILE UPLOAD TRANSFER PROGRESS HUD */}
-      {uploadProgress && (
-        <div className="fixed bottom-16 sm:bottom-20 left-3 right-3 sm:left-auto sm:right-6 z-50 sm:w-80 rounded-xl bg-slate-950/95 border border-cyan-500/50 p-3.5 shadow-2xl backdrop-blur-md space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-white truncate max-w-[200px]">
-              {uploadProgress.fileName}
-            </span>
-            <span className="font-mono text-[11px] text-cyan-400 font-semibold">
-              %{uploadProgress.percent} ({uploadProgress.currentIdx}/
-              {uploadProgress.totalFiles})
-            </span>
-          </div>
-          <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 transition-all duration-200"
-              style={{ width: `${uploadProgress.percent}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-            <span className="truncate">{uploadProgress.stage}</span>
-            <span>
-              {QuotaEngine.formatBytes(uploadProgress.bytesTransferred)} /{' '}
-              {QuotaEngine.formatBytes(uploadProgress.totalBytes)}
-            </span>
-          </div>
-        </div>
+      {/* GOOGLE DRIVE STYLE FLOATING UPLOAD QUEUE TRAY (0-100% Per-File & Folder Upload Queue) */}
+      {showUploadTray && uploadQueue.length > 0 && (
+        <UploadQueueTray
+          queue={uploadQueue}
+          isMinimized={isUploadTrayMinimized}
+          onToggleMinimize={() => setIsUploadTrayMinimized((v) => !v)}
+          onCloseTray={() => setShowUploadTray(false)}
+          onClearCompleted={() =>
+            setUploadQueue((prev) =>
+              prev.filter((q) => q.status === 'uploading' || q.status === 'queued')
+            )
+          }
+          onCancelItem={handleCancelUploadItem}
+          onCancelAll={handleCancelAllUploads}
+          onLocateNode={(folderId, nodeId) => {
+            navigateActiveTab(folderId, 'volume');
+            if (nodeId) {
+              setSelectedIds(new Set([nodeId]));
+            }
+          }}
+        />
       )}
     </div>
   );

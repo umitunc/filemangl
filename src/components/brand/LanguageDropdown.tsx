@@ -3,7 +3,7 @@ import { SupportedLocale } from '../../core/contracts/types';
 import { LOCALE_LIST } from '../../core/i18n/I18nProvider';
 import { Globe, ChevronDown, Check } from 'lucide-react';
 
-interface LanguageDropdownProps {
+export interface LanguageDropdownProps {
   locale: SupportedLocale;
   onSelectLocale: (locale: SupportedLocale) => void;
   compact?: boolean;

@@ -51,6 +51,7 @@ function estimateDataUrlBytes(dataUrl: string): number {
 class ThumbnailCacheEngine {
   private l1Cache = new Map<string, CachedThumbnailEntry>();
   private blobUrlMap = new Map<string, string>();
+  private blobInstanceMap = new Map<string, Blob>();
   private hitCount = 0;
   private missCount = 0;
   private dbPromise: Promise<IDBDatabase | null> | null = null;
@@ -154,6 +155,7 @@ class ThumbnailCacheEngine {
   }
 
   public async persistBinaryBlob(cacheKey: string, blob: Blob): Promise<void> {
+    this.blobInstanceMap.set(cacheKey, blob);
     const db = await this.openDatabase();
     if (!db) return;
     try {
@@ -162,6 +164,32 @@ class ThumbnailCacheEngine {
     } catch {
       // Ignore IndexedDB write failures in restricted environments
     }
+  }
+
+  public async getBinaryBlob(cacheKey: string): Promise<Blob | null> {
+    if (this.blobInstanceMap.has(cacheKey)) {
+      return this.blobInstanceMap.get(cacheKey)!;
+    }
+    const db = await this.openDatabase();
+    if (!db) return null;
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction(STORE_BLOBS, 'readonly');
+        const req = tx.objectStore(STORE_BLOBS).get(cacheKey);
+        req.onsuccess = () => {
+          const blob = req.result as Blob | undefined;
+          if (blob) {
+            this.blobInstanceMap.set(cacheKey, blob);
+            resolve(blob);
+            return;
+          }
+          resolve(null);
+        };
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
   }
 
   public async getPersistedBlobUrl(cacheKey: string): Promise<string | null> {

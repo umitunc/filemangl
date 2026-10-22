@@ -1,28 +1,75 @@
 {
   "name": "filemangl",
-  "private": true,
   "version": "1.0.4",
-  "description": "Enterprise WebGL-Accelerated React File Manager with SOLID Architecture, Hybrid ACL+POSIX Permissions & Universal Backend Connector",
+  "description": "Enterprise WebGL2-Accelerated React File Manager with SOLID Architecture, Hybrid ACL+POSIX Permissions, 2-Tier Thumbnail Cache, ZIP Engine & Universal Backend Connector",
+  "license": "MIT",
+  "author": "Ümit Tunç <umit.tunc@truncgil.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/umitunc/filemangl.git"
+    "url": "git+https://github.com/umitunc/filemangl.git"
   },
   "homepage": "https://github.com/umitunc/filemangl#readme",
   "bugs": {
     "url": "https://github.com/umitunc/filemangl/issues"
   },
+  "keywords": [
+    "file-manager",
+    "react-file-manager",
+    "webgl-file-manager",
+    "file-explorer",
+    "windows-11-explorer",
+    "virtual-file-system",
+    "vfs",
+    "acl-permissions",
+    "posix",
+    "react",
+    "typescript",
+    "filemangl"
+  ],
   "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "bin": {
+    "filemangl": "bin/cli.mjs",
+    "create-filemangl": "bin/cli.mjs"
+  },
+  "main": "./dist/lib/filemangl.cjs",
+  "module": "./dist/lib/filemangl.js",
+  "types": "./dist/lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/lib/types/index.d.ts",
+      "import": "./dist/lib/filemangl.js",
+      "require": "./dist/lib/filemangl.cjs"
+    },
+    "./style.css": "./dist/lib/style.css",
+    "./filemangl.css": "./dist/lib/style.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/lib",
+    "bin",
+    "README.md",
+    "BACKEND_INTEGRATION_GUIDE.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build:demo": "tsc -b && vite build",
+    "build:lib": "tsc -p tsconfig.lib.json && vite build --config vite.lib.config.ts",
+    "build": "npm run build:demo && npm run build:lib",
+    "prepublishOnly": "npm run build:lib",
+    "cli": "node ./bin/cli.mjs",
+    "doctor": "node ./bin/cli.mjs doctor",
+    "pack:check": "npm pack --dry-run",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "dependencies": {
-    "lucide-react": "^0.468.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
@@ -33,7 +80,10 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "jsdom": "^29.1.1",
+    "lucide-react": "^0.468.0",
     "postcss": "^8.4.49",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.6.2",
     "vite": "^6.0.5",

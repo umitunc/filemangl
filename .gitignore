@@ -20,7 +20,8 @@ jspm_packages/
 *.tsbuildinfo
 
 # Build outputs
-dist/
+dist/*
+!dist/lib/
 dist-ssr/
 build/
 out/

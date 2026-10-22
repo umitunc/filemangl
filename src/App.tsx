@@ -382,15 +382,15 @@ export function App() {
             ROUTE 2: /documentation (DEDICATED DEVELOPER DOCS & BACKEND PORTAL)
         ==================================================================== */}
         {route === 'documentation' && (
-          <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-8 space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-5">
+          <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-4 sm:py-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3.5">
               <div>
-                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-300 text-[11px] font-mono mb-2">
+                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-300 text-[11px] font-mono mb-1">
                   <span>/documentation</span>
                   <span>•</span>
                   <span>VFS, Laravel 11, Node.js, i18n, SOLID & ACL</span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
+                <h1 className="text-xl sm:text-2xl font-extrabold text-white">
                   {dict.nav.documentation}
                 </h1>
               </div>
@@ -437,18 +437,18 @@ export function App() {
             ROUTE 3: /configurator (DEDICATED SOLID CONFIG BUILDER + LIVE PREVIEW)
         ==================================================================== */}
         {route === 'configurator' && (
-          <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-8 space-y-8">
-            <div className="flex flex-wrap items-center justify-between gap-4">
+          <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-4 sm:py-5 space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[11px] font-mono mb-2">
+                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[11px] font-mono mb-1">
                   <span>/configurator</span>
                   <span>•</span>
                   <span>SOLID Config & i18n JSX Builder</span>
                 </div>
-                <h1 className="text-2xl font-extrabold text-white">
+                <h1 className="text-xl sm:text-2xl font-extrabold text-white">
                   {dict.configurator.title}
                 </h1>
-                <p className="text-xs text-slate-400 mt-1">{dict.configurator.subtitle}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{dict.configurator.subtitle}</p>
               </div>
               <a
                 href="/demo"

@@ -38,14 +38,15 @@ describe('JSON Localization (i18n: TR / EN / DE / RU) & URL Routing (/demo, /doc
 
     // Verify /demo route is active and renders the explorer
     expect(window.location.pathname).toBe('/demo');
-    expect((await screen.findAllByText('Bu bilgisayar')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Ana Disk (Root)')).length).toBeGreaterThan(0);
 
     // Switch language to English (EN) via top navigation bar
     const enButtons = screen.getAllByTitle('English (en.json)');
     fireEvent.click(enButtons[0]);
 
-    // Check that navigation labels switched to English
+    // Check that navigation labels & root volume switched to English
     expect(screen.getByText('Documentation')).toBeInTheDocument();
+    expect(screen.getAllByText('Root Volume').length).toBeGreaterThan(0);
 
     // Switch language to German (DE)
     const deButtons = screen.getAllByTitle('Deutsch (de.json)');
