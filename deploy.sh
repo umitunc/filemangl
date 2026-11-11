@@ -15,13 +15,13 @@ echo "=== Building project ==="
 npm --prefix "$REPO_DIR" run build
 
 echo "=== Deploying to public_html ==="
+rm -rf "$PUBLIC_DIR"/*
 cp -r "$REPO_DIR"/dist/* "$PUBLIC_DIR"/
 
 cat << 'HTACCESS' > "$PUBLIC_DIR"/.htaccess
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
-  RewriteRule ^api/ - [L]
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
