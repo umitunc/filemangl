@@ -3257,7 +3257,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
               </button>
 
               {openToolbarMenu === 'sort' && (
-                <div className="absolute left-0 sm:left-0 top-full mt-1 z-50 w-56 max-w-[calc(100vw-24px)] rounded-xl bg-[#111827] border border-slate-700 shadow-2xl py-1.5 text-xs text-slate-200 whitespace-normal">
+                <div className="absolute left-0 sm:left-0 top-full mt-1 z-50 w-64 max-w-[calc(100vw-24px)] rounded-xl bg-[#111827] border border-slate-700 shadow-2xl py-1.5 text-xs text-slate-200 whitespace-normal">
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Sıralama Ölçütü
                   </div>
@@ -3275,7 +3275,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                         setSortField(field);
                         setOpenToolbarMenu(null);
                       }}
-                      className="w-full px-3.5 py-1.5 hover:bg-slate-800 flex items-center justify-between"
+                      className="w-full px-3.5 py-1.5 hover:bg-slate-800 flex items-center justify-between gap-2 text-left"
                     >
                       <span>{label}</span>
                       {sortField === field && (
@@ -3298,12 +3298,12 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                       setSortDirection('asc');
                       setOpenToolbarMenu(null);
                     }}
-                    className="w-full px-3.5 py-1.5 hover:bg-slate-800 flex items-center justify-between"
+                    className="w-full px-3.5 py-1.5 hover:bg-slate-800 flex items-center justify-between gap-2 text-left"
                   >
                     <span>Artan (A-Z / Küçükten Büyüğe)</span>
                     {sortDirection === 'asc' && (
                       <span
-                        className="material-symbols-outlined text-blue-400"
+                        className="material-symbols-outlined text-blue-400 shrink-0"
                         style={{ fontSize: '16px' }}
                       >
                         check
@@ -3315,12 +3315,12 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                       setSortDirection('desc');
                       setOpenToolbarMenu(null);
                     }}
-                    className="w-full px-3.5 py-1.5 hover:bg-slate-800 flex items-center justify-between"
+                    className="w-full px-3.5 py-1.5 hover:bg-slate-800 flex items-center justify-between gap-2 text-left"
                   >
                     <span>Azalan (Z-A / Büyükten Küçüğe)</span>
                     {sortDirection === 'desc' && (
                       <span
-                        className="material-symbols-outlined text-blue-400"
+                        className="material-symbols-outlined text-blue-400 shrink-0"
                         style={{ fontSize: '16px' }}
                       >
                         check
@@ -3345,7 +3345,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                         setGroupBy(gMode);
                         setOpenToolbarMenu(null);
                       }}
-                      className="w-full px-3.5 py-1.5 hover:bg-slate-800 flex items-center justify-between"
+                      className="w-full px-3.5 py-1.5 hover:bg-slate-800 flex items-center justify-between gap-2 text-left"
                     >
                       <span>{gLabel}</span>
                       {groupBy === gMode && (
@@ -3386,7 +3386,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
               </button>
 
               {openToolbarMenu === 'view' && (
-                <div className="absolute left-0 top-full mt-1 z-50 w-60 max-w-[calc(100vw-24px)] rounded-xl bg-[#111827] border border-slate-700 shadow-2xl py-1.5 text-xs text-slate-200 whitespace-normal">
+                <div className="absolute left-0 top-full mt-1 z-50 w-72 max-w-[calc(100vw-24px)] rounded-xl bg-[#111827] border border-slate-700 shadow-2xl py-1.5 text-xs text-slate-200 whitespace-normal">
                   {(
                     [
                       ['extra_large_icons', 'grid_view', dict.explorer.viewExtraLarge],
@@ -3405,20 +3405,20 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                         setViewMode(mode);
                         setOpenToolbarMenu(null);
                       }}
-                      className="w-full px-3.5 py-1.5 hover:bg-slate-800 flex items-center justify-between"
+                      className="w-full px-3.5 py-1.5 hover:bg-slate-800 flex items-center justify-between gap-2 text-left"
                     >
-                      <span className="flex items-center gap-2.5">
+                      <span className="flex items-center gap-2.5 min-w-0">
                         <span
-                          className="material-symbols-outlined text-slate-400"
+                          className="material-symbols-outlined text-slate-400 shrink-0"
                           style={{ fontSize: '17px' }}
                         >
                           {iconName}
                         </span>
-                        <span>{label}</span>
+                        <span className="truncate">{label}</span>
                       </span>
                       {viewMode === mode && (
                         <span
-                          className="material-symbols-outlined text-blue-400"
+                          className="material-symbols-outlined text-blue-400 shrink-0"
                           style={{ fontSize: '16px' }}
                         >
                           check
@@ -3435,7 +3435,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                           setViewMode('webgl_spatial');
                           setOpenToolbarMenu(null);
                         }}
-                        className="w-full px-3.5 py-1.5 hover:bg-slate-800 flex items-center justify-between text-blue-300"
+                        className="w-full px-3.5 py-1.5 hover:bg-slate-800 flex items-center justify-between gap-2 text-left text-blue-300"
                       >
                         <span className="flex items-center gap-2.5">
                           <span
