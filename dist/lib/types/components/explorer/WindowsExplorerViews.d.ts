@@ -1,10 +1,11 @@
 import React from 'react';
-import { ClipboardState, ExplorerViewMode, FileNode, IFileManagerConfig, SortDirection, SortField, UserIdentity } from '../../core/contracts/types';
+import { ClipboardState, ExplorerViewMode, FileIconPack, FileNode, IFileManagerConfig, SortDirection, SortField, UserIdentity } from '../../core/contracts/types';
 export type ExplorerGroupBy = 'none' | 'date' | 'category';
 interface WindowsExplorerViewsProps {
     nodes: FileNode[];
     allNodes: FileNode[];
     viewMode: ExplorerViewMode;
+    iconPack?: FileIconPack;
     groupBy?: ExplorerGroupBy;
     selectedIds: Set<string>;
     clipboard: ClipboardState;
@@ -27,7 +28,7 @@ interface WindowsExplorerViewsProps {
  * Renders authentic Windows 11 File Explorer SVG icons & thumbnails
  * (matching Windows 11 23H2/24H2 yellow folders, folded-corner sheets with type badges, zipper folders, etc.)
  */
-export declare function renderCategoryIcon(node: FileNode, sizeClass?: string): React.ReactNode;
+export declare function renderCategoryIcon(node: FileNode, sizeClass?: string, iconPack?: FileIconPack): React.ReactNode;
 export declare const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps>;
 export {};
 //# sourceMappingURL=WindowsExplorerViews.d.ts.map

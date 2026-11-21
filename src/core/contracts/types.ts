@@ -208,11 +208,14 @@ export type SupportedLocale = 'tr' | 'en' | 'de' | 'ru';
 
 export type BorderRadiusPreset = 'sharp' | 'squircle' | 'pill';
 
+export type FileIconPack = 'win11' | 'macos' | 'material' | 'neon' | 'minimal';
+
 export interface IFileManagerConfig {
   volumeName: string;
   mountPath: string;
   locale: SupportedLocale;
   theme: 'dark' | 'light';
+  iconPack?: FileIconPack;
   fontScale?: number; // 85 - 125+ percentage scale synchronized with SheetGL & UXU Theme Studio
   borderRadius?: BorderRadiusPreset | number; // 'sharp' | 'squircle' | 'pill' or custom px radius
   accentColor?: string; // Primary accent hex color (inherits --uxu-primary when omitted)

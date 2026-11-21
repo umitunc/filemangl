@@ -48,6 +48,7 @@ export const DEFAULT_FILE_MANAGER_CONFIG: IFileManagerConfig = {
   mountPath: '/mnt/nvme0n1/workspace',
   locale: 'tr',
   theme: 'dark',
+  iconPack: 'win11',
   fontScale: 100,
   borderRadius: 'squircle',
   inheritHostTheme: true,

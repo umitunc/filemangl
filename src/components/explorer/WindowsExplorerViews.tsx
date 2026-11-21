@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ClipboardState,
   ExplorerViewMode,
+  FileIconPack,
   FileNode,
   IFileManagerConfig,
   SortDirection,
@@ -27,6 +28,7 @@ interface WindowsExplorerViewsProps {
   nodes: FileNode[];
   allNodes: FileNode[];
   viewMode: ExplorerViewMode;
+  iconPack?: FileIconPack;
   groupBy?: ExplorerGroupBy;
   selectedIds: Set<string>;
   clipboard: ClipboardState;
@@ -122,38 +124,125 @@ async function extractDroppedFilesAndFolders(dataTransfer: DataTransfer): Promis
  */
 export function renderCategoryIcon(
   node: FileNode,
-  sizeClass = 'w-12 h-12'
+  sizeClass = 'w-12 h-12',
+  iconPack: FileIconPack = 'win11'
 ): React.ReactNode {
   const isSmall =
     sizeClass.includes('w-4') || sizeClass.includes('w-5') || sizeClass.includes('w-6');
 
-  // 1. WINDOWS 11 GOLDEN FOLDER ICON
+  const packPalette = {
+    win11: {
+      folderBackTop: '#f59e0b',
+      folderBackBot: '#d97706',
+      folderFrontTop: '#fbbf24',
+      folderFrontBot: '#f59e0b',
+      folderStroke: '#fde68a',
+      paperFill: '#e2e8f0',
+      paperFold: '#94a3b8',
+      paperLines: '#94a3b8',
+      archiveBack: '#d97706',
+      archiveFront: '#fbbf24',
+      archiveZip: '#78350f',
+      archiveDash: '#fef3c7',
+    },
+    macos: {
+      folderBackTop: '#0ea5e9',
+      folderBackBot: '#0284c7',
+      folderFrontTop: '#38bdf8',
+      folderFrontBot: '#0ea5e9',
+      folderStroke: '#bae6fd',
+      paperFill: '#f8fafc',
+      paperFold: '#cbd5e1',
+      paperLines: '#94a3b8',
+      archiveBack: '#0284c7',
+      archiveFront: '#38bdf8',
+      archiveZip: '#075985',
+      archiveDash: '#e0f2fe',
+    },
+    material: {
+      folderBackTop: '#6366f1',
+      folderBackBot: '#4f46e5',
+      folderFrontTop: '#a5b4fc',
+      folderFrontBot: '#818cf8',
+      folderStroke: '#e0e7ff',
+      paperFill: '#eef2ff',
+      paperFold: '#a5b4fc',
+      paperLines: '#818cf8',
+      archiveBack: '#4f46e5',
+      archiveFront: '#818cf8',
+      archiveZip: '#312e81',
+      archiveDash: '#e0e7ff',
+    },
+    neon: {
+      folderBackTop: '#0f172a',
+      folderBackBot: '#020617',
+      folderFrontTop: '#1e293b',
+      folderFrontBot: '#0f172a',
+      folderStroke: '#22d3ee',
+      paperFill: '#0f172a',
+      paperFold: '#22d3ee',
+      paperLines: '#38bdf8',
+      archiveBack: '#090d16',
+      archiveFront: '#1e293b',
+      archiveZip: '#a855f7',
+      archiveDash: '#22d3ee',
+    },
+    minimal: {
+      folderBackTop: 'transparent',
+      folderBackBot: 'transparent',
+      folderFrontTop: 'rgba(148,163,184,0.12)',
+      folderFrontBot: 'rgba(148,163,184,0.06)',
+      folderStroke: '#94a3b8',
+      paperFill: 'rgba(148,163,184,0.10)',
+      paperFold: '#94a3b8',
+      paperLines: '#94a3b8',
+      archiveBack: 'transparent',
+      archiveFront: 'rgba(148,163,184,0.12)',
+      archiveZip: '#64748b',
+      archiveDash: '#cbd5e1',
+    },
+  }[iconPack];
+
+  const isOutlinePack = iconPack === 'minimal' || iconPack === 'neon';
+  const folderGradBackId = `folderBack_${iconPack}`;
+  const folderGradFrontId = `folderFront_${iconPack}`;
+
+  // 1. FOLDER ICON (Multi-Pack SVG)
   if (node.type === 'folder') {
     return (
       <div className={`relative flex items-center justify-center ${sizeClass} shrink-0`}>
         <svg viewBox="0 0 48 48" className="w-full h-full drop-shadow-sm">
           <defs>
-            <linearGradient id="win11FolderBack" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#f59e0b" />
-              <stop offset="100%" stopColor="#d97706" />
+            <linearGradient id={folderGradBackId} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor={packPalette.folderBackTop} />
+              <stop offset="100%" stopColor={packPalette.folderBackBot} />
             </linearGradient>
-            <linearGradient id="win11FolderFront" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#fbbf24" />
-              <stop offset="100%" stopColor="#f59e0b" />
+            <linearGradient id={folderGradFrontId} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor={packPalette.folderFrontTop} />
+              <stop offset="100%" stopColor={packPalette.folderFrontBot} />
             </linearGradient>
           </defs>
           {/* Back tab */}
           <path
             d="M4 10C4 7.79086 5.79086 6 8 6H18.3431C19.404 6 20.4214 6.42143 21.1716 7.17157L24 10H40C42.2091 10 44 11.7909 44 14V38C44 40.2091 42.2091 42 40 42H8C5.79086 42 4 40.2091 4 38V10Z"
-            fill="url(#win11FolderBack)"
+            fill={`url(#${folderGradBackId})`}
+            stroke={isOutlinePack ? packPalette.folderStroke : 'none'}
+            strokeWidth={isOutlinePack ? '1.8' : undefined}
           />
           {/* Front flap */}
           <path
             d="M4 16C4 14.3431 5.34315 13 7 13H41C42.6569 13 44 14.3431 44 16V38C44 40.2091 42.2091 42 40 42H8C5.79086 42 4 40.2091 4 38V16Z"
-            fill="url(#win11FolderFront)"
+            fill={`url(#${folderGradFrontId})`}
+            stroke={isOutlinePack ? packPalette.folderStroke : 'none'}
+            strokeWidth={isOutlinePack ? '1.8' : undefined}
           />
           {/* Subtle top highlight */}
-          <path d="M5 15H43" stroke="#fde68a" strokeWidth="1" strokeOpacity="0.65" />
+          <path
+            d="M5 15H43"
+            stroke={packPalette.folderStroke}
+            strokeWidth={iconPack === 'neon' ? '1.5' : '1'}
+            strokeOpacity={iconPack === 'neon' ? '0.9' : '0.65'}
+          />
         </svg>
         {node.security.locked && (
           <span className="absolute -bottom-0.5 -right-0.5 p-0.5 rounded-full bg-rose-600 text-white shadow">
@@ -164,27 +253,31 @@ export function renderCategoryIcon(
     );
   }
 
-  // 2. WINDOWS 11 ZIPPED ARCHIVE FOLDER (.zip, .tar, .rar)
+  // 2. ZIPPED ARCHIVE FOLDER (.zip, .tar, .rar)
   if (node.category === 'archive' || node.type === 'archive') {
     return (
       <div className={`relative flex items-center justify-center ${sizeClass} shrink-0`}>
         <svg viewBox="0 0 48 48" className="w-full h-full drop-shadow-sm">
           <path
             d="M4 10C4 7.79 5.79 6 8 6H18.34L24 10H40C42.21 10 44 11.79 44 14V38C44 40.21 42.21 42 40 42H8C5.79 42 4 40.21 4 38V10Z"
-            fill="#d97706"
+            fill={packPalette.archiveBack}
+            stroke={isOutlinePack ? packPalette.folderStroke : 'none'}
+            strokeWidth={isOutlinePack ? '1.8' : undefined}
           />
           <path
             d="M4 16C4 14.34 5.34 13 7 13H41C42.66 13 44 14.34 44 16V38C44 40.21 42.21 42 40 42H8C5.79 42 4 40.21 4 38V16Z"
-            fill="#fbbf24"
+            fill={packPalette.archiveFront}
+            stroke={isOutlinePack ? packPalette.folderStroke : 'none'}
+            strokeWidth={isOutlinePack ? '1.8' : undefined}
           />
           {/* Zipper teeth strip */}
-          <rect x="21" y="13" width="6" height="29" fill="#78350f" fillOpacity="0.35" />
+          <rect x="21" y="13" width="6" height="29" fill={packPalette.archiveZip} fillOpacity="0.35" />
           <line
             x1="24"
             y1="14"
             x2="24"
             y2="41"
-            stroke="#fef3c7"
+            stroke={packPalette.archiveDash}
             strokeWidth="3"
             strokeDasharray="2 2"
           />
@@ -298,17 +391,19 @@ export function renderCategoryIcon(
   return (
     <div className={`relative flex items-center justify-center ${sizeClass} shrink-0`}>
       <svg viewBox="0 0 48 48" className="w-full h-full drop-shadow-sm">
-        {/* White/Light-gray paper sheet */}
+        {/* Paper sheet */}
         <path
           d="M10 4H30L38 12V40C38 42.2091 36.2091 44 34 44H10C7.79086 44 6 42.2091 6 40V8C6 5.79086 7.79086 4 10 4Z"
-          fill="#e2e8f0"
+          fill={packPalette.paperFill}
+          stroke={isOutlinePack ? packPalette.paperFold : 'none'}
+          strokeWidth={isOutlinePack ? '1.8' : undefined}
         />
         {/* Folded corner */}
-        <path d="M30 4L38 12H32C30.8954 12 30 11.1046 30 10V4Z" fill="#94a3b8" />
+        <path d="M30 4L38 12H32C30.8954 12 30 11.1046 30 10V4Z" fill={packPalette.paperFold} />
         {/* Document content lines */}
-        <rect x="12" y="16" width="18" height="2.5" rx="1" fill="#94a3b8" />
-        <rect x="12" y="21" width="20" height="2.5" rx="1" fill="#94a3b8" />
-        <rect x="12" y="26" width="14" height="2.5" rx="1" fill="#94a3b8" />
+        <rect x="12" y="16" width="18" height="2.5" rx="1" fill={packPalette.paperLines} />
+        <rect x="12" y="21" width="20" height="2.5" rx="1" fill={packPalette.paperLines} />
+        <rect x="12" y="26" width="14" height="2.5" rx="1" fill={packPalette.paperLines} />
         {/* Type badge (like PDF / CSV / TXT / TS in Windows 11) */}
         {!isSmall && (
           <>
@@ -354,6 +449,7 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
   nodes,
   allNodes,
   viewMode,
+  iconPack = 'win11',
   groupBy = 'date',
   selectedIds,
   clipboard,
@@ -829,7 +925,7 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
                   <td className="py-1 px-4">
                     <div className="flex items-center gap-2.5">
                       <div data-drag-handle="true" className="shrink-0">
-                        {renderCategoryIcon(node, 'w-5 h-5')}
+                        {renderCategoryIcon(node, 'w-5 h-5', iconPack)}
                       </div>
                       <div className="min-w-0 flex-1">{renderInlineRenameOrLabel(node)}</div>
                       {node.starred && (
@@ -1072,7 +1168,7 @@ export const WindowsExplorerViews: React.FC<WindowsExplorerViewsProps> = ({
           data-drag-handle="true"
           className={spec.isHorizontal ? 'shrink-0' : 'mb-1.5 shrink-0'}
         >
-          {renderCategoryIcon(node, spec.iconSize)}
+          {renderCategoryIcon(node, spec.iconSize, iconPack)}
         </div>
 
         <div className={spec.isHorizontal ? 'min-w-0 flex-1' : 'w-full shrink-0'}>

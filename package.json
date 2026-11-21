@@ -1,6 +1,6 @@
 {
   "name": "filemangl",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "description": "Enterprise WebGL2-Accelerated React File Manager with SOLID Architecture, Hybrid ACL+POSIX Permissions, 2-Tier Thumbnail Cache, ZIP Engine & Universal Backend Connector",
   "license": "MIT",
   "author": "Ümit Tunç <umit.tunc@truncgil.com>",

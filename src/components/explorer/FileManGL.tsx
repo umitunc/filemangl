@@ -6,6 +6,7 @@ import {
   ConflictResolutionStrategy,
   ExplorerViewMode,
   FileCategory,
+  FileIconPack,
   FileNode,
   IFileManagerConfig,
   IFileSystemDriver,
@@ -356,6 +357,25 @@ export const FileManGL: React.FC<FileManGLProps> = ({
   // ==========================================================================
   const [secondaryFolderId, setSecondaryFolderId] = useState<string | null>('fld_releases');
   const [viewMode, setViewMode] = useState<ExplorerViewMode>(config.defaultViewMode);
+  const [iconPack, setIconPack] = useState<FileIconPack>(() => {
+    try {
+      const saved = window.localStorage.getItem('filemangl_icon_pack') as FileIconPack | null;
+      if (saved && ['win11', 'macos', 'material', 'neon', 'minimal'].includes(saved)) {
+        return saved;
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return config.iconPack ?? 'win11';
+  });
+  const handleSelectIconPack = useCallback((pack: FileIconPack) => {
+    setIconPack(pack);
+    try {
+      window.localStorage.setItem('filemangl_icon_pack', pack);
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
   const [groupBy, setGroupBy] = useState<'none' | 'date' | 'category'>('date');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
@@ -3484,6 +3504,45 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                   )}
 
                   <div className="my-1 border-t border-slate-800" />
+                  <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    İkon Paketi (SVG)
+                  </div>
+                  {(
+                    [
+                      ['win11', '#f59e0b', 'Windows 11 (Altın)'],
+                      ['macos', '#38bdf8', 'macOS Blue (Sequoia)'],
+                      ['material', '#818cf8', 'Material You (Pastel)'],
+                      ['neon', '#22d3ee', 'Neon Cyber Glass'],
+                      ['minimal', '#94a3b8', 'Minimal Monokrom'],
+                    ] as const
+                  ).map(([packId, swatch, packLabel]) => (
+                    <button
+                      key={packId}
+                      onClick={() => {
+                        handleSelectIconPack(packId);
+                        setOpenToolbarMenu(null);
+                      }}
+                      className="w-full px-3.5 py-1.5 hover:bg-slate-800 flex items-center justify-between gap-2 text-left"
+                    >
+                      <span className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className="w-3 h-3 rounded-sm shrink-0 border border-white/20"
+                          style={{ backgroundColor: swatch }}
+                        />
+                        <span className="truncate">{packLabel}</span>
+                      </span>
+                      {iconPack === packId && (
+                        <span
+                          className="material-symbols-outlined text-blue-400 shrink-0"
+                          style={{ fontSize: '16px' }}
+                        >
+                          check
+                        </span>
+                      )}
+                    </button>
+                  ))}
+
+                  <div className="my-1 border-t border-slate-800" />
                   <button
                     onClick={() => {
                       onConfigChange?.({ enableDualPane: !config.enableDualPane });
@@ -4101,6 +4160,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                 nodes={visibleNodes}
                 allNodes={allNodes}
                 viewMode={viewMode}
+                iconPack={iconPack}
                 selectedIds={selectedIds}
                 clipboard={clipboard}
                 renamingId={renamingId}
@@ -4224,7 +4284,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                       className="px-3 py-2 rounded-lg bg-slate-900/70 hover:bg-slate-800 border border-slate-800/80 flex items-center justify-between text-xs cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5 truncate">
-                        {renderCategoryIcon(item, 'w-5 h-5')}
+                        {renderCategoryIcon(item, 'w-5 h-5', iconPack)}
                         <span className="text-slate-200 truncate">{item.name}</span>
                       </div>
                       <span className="font-mono text-[11px] text-slate-400">
@@ -4421,7 +4481,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                   ) : primarySelectedNode.category === 'audio' && primarySelectedNode.blobUrl ? (
                     <div className="w-full rounded-xl bg-slate-950/80 border border-slate-800/90 p-3 space-y-2.5 shadow-inner">
                       <div className="flex items-center justify-center py-2">
-                        {renderCategoryIcon(primarySelectedNode, 'w-14 h-14')}
+                        {renderCategoryIcon(primarySelectedNode, 'w-14 h-14', iconPack)}
                       </div>
                       <audio
                         key={primarySelectedNode.id}
@@ -4445,7 +4505,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                           : ''
                       }`}
                     >
-                      {renderCategoryIcon(primarySelectedNode, 'w-20 h-20')}
+                      {renderCategoryIcon(primarySelectedNode, 'w-20 h-20', iconPack)}
                     </div>
                   )}
 
