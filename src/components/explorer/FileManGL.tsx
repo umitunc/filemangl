@@ -307,6 +307,10 @@ export const FileManGL: React.FC<FileManGLProps> = ({
   const [rightSidebarWidth, setRightSidebarWidth] = useState<number>(300);
   const [mobileTreeOpen, setMobileTreeOpen] = useState<boolean>(false);
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState<boolean>(false);
+  const [isCompactWidth, setIsCompactWidth] = useState<boolean>(
+    typeof window !== 'undefined' ? window.innerWidth < 720 : false
+  );
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const resizingSideRef = useRef<'left' | 'right' | null>(null);
   const resizeStartXRef = useRef<number>(0);
   const resizeStartWidthRef = useRef<number>(0);
@@ -2492,8 +2496,23 @@ export const FileManGL: React.FC<FileManGLProps> = ({
     return vars as React.CSSProperties;
   }, [config.fontScale, config.borderRadius, config.accentColor]);
 
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const obs = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setIsCompactWidth(entry.contentRect.width < 720);
+        }
+      }
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   return (
     <div
+      ref={rootRef}
       style={themeStyleVars}
       data-border-radius={String(config.borderRadius ?? 'squircle')}
       data-inherit-theme={config.inheritHostTheme !== false ? 'true' : 'false'}
@@ -2694,10 +2713,10 @@ export const FileManGL: React.FC<FileManGLProps> = ({
         <div className="px-2 sm:px-2.5 py-1.5 bg-[#101726] border-b border-slate-800/90 flex flex-wrap sm:flex-nowrap items-center gap-1.5 sm:gap-2 select-none">
           {/* Mobile Left Folder Tree Drawer Toggle + Back / Forward / Up / Refresh Buttons */}
           <div className="flex items-center gap-0.5 shrink-0">
-            {config.enableFolderTree && (
+            {config.enableFolderTree && isCompactWidth && (
               <button
                 onClick={() => setMobileTreeOpen((v) => !v)}
-                className={`md:hidden w-7 h-7 rounded-md flex items-center justify-center transition mr-0.5 ${
+                className={`w-7 h-7 rounded-md flex items-center justify-center transition mr-0.5 ${
                   mobileTreeOpen
                     ? 'bg-blue-600/30 text-blue-300 border border-blue-500/50'
                     : 'hover:bg-slate-800 text-slate-200'
@@ -2884,11 +2903,13 @@ export const FileManGL: React.FC<FileManGLProps> = ({
             </div>
 
             {/* Right inside address bar: Live Benchmark Badge */}
-            <div className="hidden lg:flex items-center gap-1.5 shrink-0 pl-2 border-l border-slate-800 text-[11px] font-mono text-emerald-400">
-              <span>{visibleNodes.length.toLocaleString(config.locale)} öğe</span>
-              <span className="text-slate-600">•</span>
-              <span>{queryElapsedMs}ms</span>
-            </div>
+            {!isCompactWidth && (
+              <div className="flex items-center gap-1.5 shrink-0 pl-2 border-l border-slate-800 text-[11px] font-mono text-emerald-400">
+                <span>{visibleNodes.length.toLocaleString(config.locale)} öğe</span>
+                <span className="text-slate-600">•</span>
+                <span>{queryElapsedMs}ms</span>
+              </div>
+            )}
           </div>
 
           {/* Right Windows 11 Search Box (Full-width second row on mobile < sm, inline on sm+) */}
@@ -3757,23 +3778,26 @@ export const FileManGL: React.FC<FileManGLProps> = ({
         {/* LEFT SIDEBAR: RESIZABLE NAVIGATION PANE + MOBILE SLIDE-OVER DRAWER */}
         {config.enableFolderTree && (
           <>
-            {mobileTreeOpen && (
+            {mobileTreeOpen && isCompactWidth && (
               <div
                 onClick={() => setMobileTreeOpen(false)}
-                className="absolute inset-0 bg-black/60 backdrop-blur-[1px] z-30 md:hidden"
+                className="absolute inset-0 bg-black/60 backdrop-blur-[1px] z-30"
               />
             )}
             <div
               style={{ width: `${leftSidebarWidth}px` }}
               className={`bg-[#0d131f] border-r border-slate-800/90 flex-col justify-between shrink-0 select-none ${
-                mobileTreeOpen
-                  ? 'absolute inset-y-0 left-0 z-40 flex max-w-[85vw] shadow-2xl md:static'
-                  : 'hidden md:flex'
+                isCompactWidth
+                  ? mobileTreeOpen
+                    ? 'absolute inset-y-0 left-0 z-40 flex max-w-[85vw] shadow-2xl'
+                    : 'hidden'
+                  : 'flex'
               }`}
             >
               <div className="p-2 space-y-3 overflow-y-auto flex-1">
                 {/* Mobile Drawer Close Header */}
-                <div className="flex md:hidden items-center justify-between px-2 py-1 border-b border-slate-800/80 mb-1">
+                {isCompactWidth && (
+                  <div className="flex items-center justify-between px-2 py-1 border-b border-slate-800/80 mb-1">
                   <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
                     <span
                       className="material-symbols-outlined text-blue-400"
@@ -3792,6 +3816,7 @@ export const FileManGL: React.FC<FileManGLProps> = ({
                     </span>
                   </button>
                 </div>
+                )}
 
                 {/* Pin / Quick Access Section */}
                 <div className="space-y-0.5 text-xs">
